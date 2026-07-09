@@ -6,6 +6,10 @@ import { SitesModule } from './sites/sites.module';
 import { KiosksModule } from './kiosks/kiosks.module';
 import { EnrollmentModule } from './enrollment/enrollment.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { CutoffsModule } from './cutoffs/cutoffs.module';
+import { RulesModule } from './rules/rules.module';
+import { DtrModule } from './dtr/dtr.module';
+import { AuditModule } from './audit/audit.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 
 @Module({
@@ -18,6 +22,10 @@ import { PrismaModule } from './common/prisma/prisma.module';
     KiosksModule,
     EnrollmentModule,
     AttendanceModule,
+    CutoffsModule,
+    RulesModule,
+    DtrModule,
+    AuditModule,
   ],
 })
 export class AppModule {}

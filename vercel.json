@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd apps/kiosk && npm install && npm run build",
+  "outputDirectory": "apps/kiosk/dist",
+  "installCommand": "echo skip-root-install",
+  "framework": null
+}

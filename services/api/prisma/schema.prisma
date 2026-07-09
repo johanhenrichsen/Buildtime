@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workers         Worker[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Site {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  address   String?
+  geoLat    Float?   @map("geo_lat")
+  geoLng    Float?   @map("geo_lng")
+  projectId String?  @map("project_id") @db.Uuid
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  kiosks           Kiosk[]
+  attendanceEvents AttendanceEvent[]
+
+  @@map("sites")
+}
+
+model Kiosk {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  siteId     String    @map("site_id") @db.Uuid
+  deviceKey  String    @unique @map("device_key")
+  lastSyncAt DateTime? @map("last_sync_at") @db.Timestamptz(6)
+  status     String    @default("active")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  site             Site              @relation(fields: [siteId], references: [id])
+  attendanceEvents AttendanceEvent[]
+
+  @@map("kiosks")
+}
+
+// face_embedding_ref is stored as a plain UUID — no Prisma relation declared
+// to avoid the circular dependency with FaceEmbedding. Resolved via raw query
+// in the enrollment service (step 3).
+model Worker {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeNo       String    @unique @map("employee_no")
+  name             String
+  roleId           String    @map("role_id") @db.Uuid
+  employmentType   String    @map("employment_type")
+  dailyRate        Decimal   @map("daily_rate") @db.Decimal(10, 2)
+  hireDate         DateTime  @map("hire_date") @db.Date
+  status           String    @default("active")
+  nationalIdEnc    Bytes?    @map("national_id_enc")
+  sssEnc           Bytes?    @map("sss_enc")
+  philhealthEnc    Bytes?    @map("philhealth_enc")
+  pagibigEnc       Bytes?    @map("pagibig_enc")
+  tinEnc           Bytes?    @map("tin_enc")
+  email            String?   @unique
+  passwordHash     String?   @map("password_hash")
+  faceEmbeddingRef String?   @map("face_embedding_ref") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  role               Role              @relation(fields: [roleId], references: [id])
+  embeddings         FaceEmbedding[]   @relation("WorkerEmbeddings")
+  enrolledEmbeddings FaceEmbedding[]   @relation("EnrolledByWorker")
+  attendanceEvents   AttendanceEvent[]
+  dtrRecords         DtrRecord[]
+  auditActions       AuditLog[]        @relation("AuditActor")
+  payrollRuns        PayrollRun[]      @relation("PayrollGeneratedBy")
+  payrollLines       PayrollLine[]
+
+  @@map("workers")
+}
+
+// embedding_vector is Unsupported — Prisma cannot read/write it.
+// Use prisma.$queryRaw in the enrollment service for vector operations.
+model FaceEmbedding {
+  id              String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workerId        String                      @map("worker_id") @db.Uuid
+  embeddingVector Unsupported("vector(512)")? @map("embedding_vector")
+  qualityScore    Float                       @map("quality_score")
+  enrolledAt      DateTime                    @default(now()) @map("enrolled_at") @db.Timestamptz(6)
+  enrolledBy      String                      @map("enrolled_by") @db.Uuid
+  active          Boolean                     @default(true)
+  createdAt       DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  worker           Worker @relation("WorkerEmbeddings", fields: [workerId], references: [id], onDelete: Cascade)
+  enrolledByWorker Worker @relation("EnrolledByWorker", fields: [enrolledBy], references: [id])
+
+  @@map("face_embeddings")
+}
+
+model AttendanceEvent {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workerId         String   @map("worker_id") @db.Uuid
+  siteId           String   @map("site_id") @db.Uuid
+  kioskId          String   @map("kiosk_id") @db.Uuid
+  eventType        String   @map("event_type")
+  clientTs         DateTime @map("client_ts") @db.Timestamptz(6)
+  serverTs         DateTime @default(now()) @map("server_ts") @db.Timestamptz(6)
+  confidenceScore  Float    @map("confidence_score")
+  matchMethod      String   @map("match_method")
+  flaggedForReview Boolean  @default(false) @map("flagged_for_review")
+  syncedAt         DateTime @default(now()) @map("synced_at") @db.Timestamptz(6)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  worker Worker @relation(fields: [workerId], references: [id])
+  site   Site   @relation(fields: [siteId], references: [id])
+  kiosk  Kiosk  @relation(fields: [kioskId], references: [id])
+
+  @@map("attendance_events")
+}
+
+model PayrollCutoff {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  periodStart DateTime @map("period_start") @db.Date
+  periodEnd   DateTime @map("period_end") @db.Date
+  status      String   @default("open")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  dtrRecords  DtrRecord[]
+  payrollRuns PayrollRun[]
+
+  @@map("payroll_cutoffs")
+}
+
+model DtrRecord {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workerId     String   @map("worker_id") @db.Uuid
+  cutoffId     String   @map("cutoff_id") @db.Uuid
+  date         DateTime @db.Date
+  regularHrs   Decimal  @default(0) @map("regular_hrs") @db.Decimal(5, 2)
+  otHrs        Decimal  @default(0) @map("ot_hrs") @db.Decimal(5, 2)
+  nightDiffHrs Decimal  @default(0) @map("night_diff_hrs") @db.Decimal(5, 2)
+  lateMin      Int      @default(0) @map("late_min")
+  undertimeMin Int      @default(0) @map("undertime_min")
+  status       String   @default("draft")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  worker Worker        @relation(fields: [workerId], references: [id])
+  cutoff PayrollCutoff @relation(fields: [cutoffId], references: [id])
+
+  @@unique([workerId, date])
+  @@map("dtr_records")
+}
+
+model PayrollRun {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cutoffId    String   @map("cutoff_id") @db.Uuid
+  status      String   @default("draft")
+  generatedBy String   @map("generated_by") @db.Uuid
+  generatedAt DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  cutoff         PayrollCutoff @relation(fields: [cutoffId], references: [id])
+  generatedByWk  Worker        @relation("PayrollGeneratedBy", fields: [generatedBy], references: [id])
+  payrollLines   PayrollLine[]
+
+  @@map("payroll_runs")
+}
+
+model PayrollLine {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payrollRunId   String   @map("payroll_run_id") @db.Uuid
+  workerId       String   @map("worker_id") @db.Uuid
+  grossPay       Decimal  @map("gross_pay") @db.Decimal(12, 2)
+  sss            Decimal  @default(0) @db.Decimal(10, 2)
+  philhealth     Decimal  @default(0) @db.Decimal(10, 2)
+  pagibig        Decimal  @default(0) @db.Decimal(10, 2)
+  withholdingTax Decimal  @default(0) @map("withholding_tax") @db.Decimal(10, 2)
+  netPay         Decimal  @map("net_pay") @db.Decimal(12, 2)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  worker     Worker     @relation(fields: [workerId], references: [id])
+
+  @@unique([payrollRunId, workerId])
+  @@map("payroll_lines")
+}
+
+model AuditLog {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId  String   @map("actor_id") @db.Uuid
+  action   String
+  entity   String
+  entityId String   @map("entity_id") @db.Uuid
+  before   Json?
+  after    Json?
+  ts       DateTime @default(now()) @db.Timestamptz(6)
+
+  actor Worker @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@map("audit_log")
+}

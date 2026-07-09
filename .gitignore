@@ -20,3 +20,7 @@ postgres_data/
 
 .vercel
 .env*
+
+# Build artifacts
+dist/
+node_modules/

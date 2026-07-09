@@ -24,3 +24,6 @@ postgres_data/
 # Build artifacts
 dist/
 node_modules/
+
+# Face model binary weights — downloaded by npm postinstall, not committed
+apps/kiosk/public/models/*.bin

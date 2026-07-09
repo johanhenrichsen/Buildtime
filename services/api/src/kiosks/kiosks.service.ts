@@ -62,6 +62,34 @@ export class KiosksService {
     return kiosk;
   }
 
+  // Returns active workers with active embeddings for this kiosk's site.
+  // Vectors are fetched via raw SQL (pgvector Unsupported in Prisma).
+  // For MVP (1 site) all active enrolled workers are returned.
+  async getRoster(kioskId: string) {
+    const kiosk = await this.findOne(kioskId);
+
+    const rows = await this.prisma.$queryRaw<{
+      workerId: string;
+      name: string;
+      embeddingVector: string;
+    }[]>`
+      SELECT w.id          AS "workerId",
+             w.name,
+             fe.embedding_vector::text AS "embeddingVector"
+      FROM   workers w
+      JOIN   face_embeddings fe ON fe.id = w.face_embedding_ref
+      WHERE  w.status = 'active'
+        AND  fe.active = true
+    `;
+
+    // pgvector text format is '[n1,n2,...]' — valid JSON array
+    return rows.map((r) => ({
+      workerId: r.workerId,
+      name: r.name,
+      embedding: JSON.parse(r.embeddingVector) as number[],
+    }));
+  }
+
   async update(id: string, dto: UpdateKioskDto) {
     await this.findOne(id);
     return this.prisma.kiosk.update({

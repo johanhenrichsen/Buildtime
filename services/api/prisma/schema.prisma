@@ -111,7 +111,7 @@ model Worker {
 model FaceEmbedding {
   id              String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   workerId        String                      @map("worker_id") @db.Uuid
-  embeddingVector Unsupported("vector(512)")? @map("embedding_vector")
+  embeddingVector Unsupported("vector(128)")? @map("embedding_vector")
   qualityScore    Float                       @map("quality_score")
   enrolledAt      DateTime                    @default(now()) @map("enrolled_at") @db.Timestamptz(6)
   enrolledBy      String                      @map("enrolled_by") @db.Uuid
@@ -135,6 +135,7 @@ model AttendanceEvent {
   confidenceScore  Float    @map("confidence_score")
   matchMethod      String   @map("match_method")
   flaggedForReview Boolean  @default(false) @map("flagged_for_review")
+  clientEventId    String?  @map("client_event_id")
   syncedAt         DateTime @default(now()) @map("synced_at") @db.Timestamptz(6)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 

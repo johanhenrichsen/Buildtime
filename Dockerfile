@@ -5,6 +5,11 @@ WORKDIR /workspace
 COPY packages/shared-types ./packages/shared-types
 COPY services/api ./services/api
 
+# Build the shared-types workspace package first so its dist/ (types + js) exists
+WORKDIR /workspace/packages/shared-types
+RUN npm install --ignore-scripts
+RUN npm run build
+
 WORKDIR /workspace/services/api
 RUN npm ci --ignore-scripts
 RUN npx prisma generate

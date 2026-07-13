@@ -1,5 +1,5 @@
 import { getDb } from './db';
-import { fetchRoster, getKioskId } from './api';
+import { fetchRoster } from './api';
 import { ROSTER_REFRESH_MS } from '../constants';
 import type { RosterEntry } from '../types';
 
@@ -10,10 +10,7 @@ export async function getRoster(): Promise<RosterEntry[]> {
 }
 
 export async function refreshRoster(): Promise<RosterEntry[]> {
-  const kioskId = getKioskId();
-  if (!kioskId) throw new Error('Kiosk not authenticated');
-
-  const entries = await fetchRoster(kioskId);
+  const entries = await fetchRoster();
   const db = await getDb();
   const tx = db.transaction('roster', 'readwrite');
   await tx.store.clear();

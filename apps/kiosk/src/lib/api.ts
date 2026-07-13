@@ -55,7 +55,9 @@ async function authedFetch(path: string, init?: RequestInit): Promise<Response> 
   });
 }
 
-export async function fetchRoster(kioskId: string): Promise<RosterEntry[]> {
+export async function fetchRoster(): Promise<RosterEntry[]> {
+  await getToken(); // ensures _tokenPayload is populated before reading .sub
+  const kioskId = _tokenPayload!.sub;
   const res = await authedFetch(`/api/v1/kiosks/${kioskId}/roster`);
   if (!res.ok) throw new Error(`Roster fetch failed: ${res.status}`);
   return res.json() as Promise<RosterEntry[]>;

@@ -5,6 +5,10 @@ WORKDIR /workspace
 COPY packages/shared-types ./packages/shared-types
 COPY services/api ./services/api
 
+# shared-types points types to dist/index.d.ts — build it before the API compiles
+WORKDIR /workspace/packages/shared-types
+RUN npm ci && npm run build
+
 WORKDIR /workspace/services/api
 RUN npm ci --ignore-scripts
 RUN npx prisma generate

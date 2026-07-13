@@ -5,9 +5,10 @@ WORKDIR /workspace
 COPY packages/shared-types ./packages/shared-types
 COPY services/api ./services/api
 
-# shared-types points types to dist/index.d.ts — build it before the API compiles
+# Build the shared-types workspace package first so its dist/ (types + js) exists
 WORKDIR /workspace/packages/shared-types
-RUN npm ci && npm run build
+RUN npm install --ignore-scripts
+RUN npm run build
 
 WORKDIR /workspace/services/api
 RUN npm ci --ignore-scripts

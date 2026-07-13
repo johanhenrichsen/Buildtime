@@ -175,12 +175,22 @@ export default function App() {
         )}
 
         {cameraError && phase !== 'init' && phase !== 'error' && (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-red-400 px-8 text-center">{cameraError}</p>
+          <div className="flex flex-col items-center justify-center h-full gap-4 px-8 text-center">
+            <p className="text-4xl">📷</p>
+            <p className="text-red-400 text-lg font-medium">Camera unavailable</p>
+            <p className="text-slate-400 text-sm max-w-xs">{cameraError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-2 px-6 py-2 bg-blue-600 rounded-lg text-sm"
+            >
+              Refresh
+            </button>
           </div>
         )}
 
-        {(phase === 'idle' || phase === 'liveness' || phase === 'matching') && !cameraError && (
+        {/* Always mounted so videoRef.current is set when useCamera's effect runs.
+            Hidden (display:none) until the kiosk is ready — stream still attaches. */}
+        <div className={`h-full w-full ${!cameraActive || cameraError ? 'hidden' : ''}`}>
           <CameraView
             videoRef={videoRef}
             canvasRef={canvasRef}
@@ -189,7 +199,7 @@ export default function App() {
             livenessFrameCount={liveness.frameCount}
             phase={phase}
           />
-        )}
+        </div>
 
         {phase === 'result' && result && <CheckinResultView result={result} />}
       </div>

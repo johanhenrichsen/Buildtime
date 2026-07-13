@@ -2,5 +2,13 @@
   "buildCommand": "cd apps/kiosk && npm install && npm run build",
   "outputDirectory": "apps/kiosk/dist",
   "installCommand": "echo skip-root-install",
-  "framework": null
+  "framework": null,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Permissions-Policy", "value": "camera=(self)" }
+      ]
+    }
+  ]
 }

@@ -17,6 +17,7 @@ RUN npm run build
 
 # Production stage
 FROM node:20-alpine
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 COPY --from=builder /workspace/services/api/node_modules ./node_modules

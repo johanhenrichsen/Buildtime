@@ -13,6 +13,14 @@ async function bootstrap() {
     }),
   );
 
+  const allowedOrigins = [
+    'https://buildtime.vercel.app',
+    'https://buildtime-admin.vercel.app',
+    /^https:\/\/buildtime.*\.vercel\.app$/,
+    /^http:\/\/localhost:\d+$/,
+  ];
+  app.enableCors({ origin: allowedOrigins, credentials: true });
+
   app.setGlobalPrefix('api/v1');
 
   const port = process.env.PORT ?? 3000;

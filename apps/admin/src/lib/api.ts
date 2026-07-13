@@ -39,6 +39,21 @@ export async function login(email: string, password: string): Promise<{ access_t
   return json(res);
 }
 
+// ── Sites ─────────────────────────────────────────────────────────────────────
+
+export interface Site {
+  id: string;
+  name: string;
+  status: string;
+  address?: string;
+  createdAt?: string;
+}
+
+export async function getSites(): Promise<PaginatedResponse<Site>> {
+  const res = await apiFetch('/api/v1/sites');
+  return json(res);
+}
+
 // ── Workers ──────────────────────────────────────────────────────────────────
 
 export interface Worker {

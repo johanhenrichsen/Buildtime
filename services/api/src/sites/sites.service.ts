@@ -12,8 +12,8 @@ export class SitesService {
   }
 
   findAll(params: { status?: string; page?: number; limit?: number }) {
-    const page = params.page ?? 1;
-    const limit = Math.min(params.limit ?? 20, 100);
+    const page = Number(params.page) || 1;
+    const limit = Math.min(Number(params.limit) || 20, 100);
     const where = params.status ? { status: params.status } : {};
 
     return Promise.all([

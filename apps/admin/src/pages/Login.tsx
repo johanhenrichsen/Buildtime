@@ -14,10 +14,12 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (getUser()) {
-    setLocation('/workers');
-    return null;
-  }
+  // Must be in useEffect — calling setLocation during render triggers a
+  // Wouter state update which re-renders Login (it uses useLocation), which
+  // calls setLocation again → infinite loop → "Too many re-renders" crash.
+  useEffect(() => {
+    if (getUser()) setLocation('/workers');
+  }, [setLocation]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,8 +33,9 @@ export default function Login() {
       const { access_token } = await login(email, password);
       setToken(access_token);
       setLocation('/workers');
-    } catch {
-      setError('Invalid credentials. Please try again.');
+    } catch (e) {
+      console.error('Login error:', e);
+      setError(e instanceof Error ? e.message : 'Invalid credentials. Please try again.');
     } finally {
       setLoading(false);
     }

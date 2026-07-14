@@ -154,6 +154,7 @@ export default function PayrollDetail() {
             onClick={handleCompute}
             disabled={computeDtr.isPending}
             className="flex-1 sm:flex-none"
+            title="Calculates regular hours, overtime, late deductions and night differential from attendance check-ins for this period"
           >
             {computeDtr.isPending ? 'Computing…' : 'Compute DTR'}
           </Button>
@@ -172,8 +173,8 @@ export default function PayrollDetail() {
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Worker</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
                 <th className="text-center px-4 py-3 font-medium text-muted-foreground">Regular</th>
-                <th className="text-center px-4 py-3 font-medium text-muted-foreground">OT</th>
-                <th className="text-center px-4 py-3 font-medium text-muted-foreground">Night Diff</th>
+                <th className="text-center px-4 py-3 font-medium text-muted-foreground">OT Hours</th>
+                <th className="text-center px-4 py-3 font-medium text-muted-foreground">Night Diff (hrs)</th>
                 <th className="text-center px-4 py-3 font-medium text-muted-foreground">Late (min)</th>
                 <th className="text-center px-4 py-3 font-medium text-muted-foreground">Undertime</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
@@ -191,7 +192,9 @@ export default function PayrollDetail() {
                   <td className="px-4 py-3 text-center">{r.lateMin}</td>
                   <td className="px-4 py-3 text-center">{r.undertimeMin}</td>
                   <td className="px-4 py-3">
-                    <Badge className="text-xs bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-100">{r.status}</Badge>
+                    <Badge className={`text-xs ${r.status === 'computed' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-100'}`}>
+                      {r.status === 'computed' ? 'Final' : 'Draft'}
+                    </Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Button
@@ -223,7 +226,12 @@ export default function PayrollDetail() {
       <Dialog open={!!editRow} onOpenChange={(open) => { if (!open) setEditRow(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Edit DTR Record</DialogTitle>
+            <DialogTitle>
+              {editRow ? (() => {
+                const rec = records.find((r) => r.id === editRow);
+                return rec ? `Edit DTR — ${rec.worker.name} · ${formatDate(rec.date)}` : 'Edit DTR Record';
+              })() : 'Edit DTR Record'}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="grid grid-cols-2 gap-3">

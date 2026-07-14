@@ -16,14 +16,24 @@ import { CardSkeleton } from '@/components/LoadingSkeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useCutoffs, useCreateCutoff } from '@/lib/queries';
 
+const STATUS_META: Record<string, { label: string; description: string; className: string }> = {
+  open:     { label: 'Open',     description: 'Attendance not yet computed',          className: 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100' },
+  computed: { label: 'Computed', description: 'DTR calculated — ready to review',     className: 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100' },
+  locked:   { label: 'Finalized', description: 'Payroll approved and locked',         className: 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100' },
+};
+
 function statusBadge(status: string) {
-  const map: Record<string, { label: string; className: string }> = {
-    open: { label: 'Open', className: 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100' },
-    computed: { label: 'Computed', className: 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100' },
-    locked: { label: 'Locked', className: 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100' },
+  const s = STATUS_META[status] ?? { label: status, description: '', className: 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-100' };
+  return <Badge className={`text-xs ${s.className}`} title={s.description}>{s.label}</Badge>;
+}
+
+function statusHint(status: string) {
+  const hints: Record<string, string> = {
+    open:     'Next step: open the period and click "Compute DTR" to generate time records from attendance scans.',
+    computed: 'Next step: review the time records, make any corrections, then run payroll.',
+    locked:   'This period is finalized. Export CSV for your payroll system.',
   };
-  const s = map[status] ?? { label: status, className: 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-100' };
-  return <Badge className={`text-xs ${s.className}`}>{s.label}</Badge>;
+  return hints[status] ?? null;
 }
 
 function formatDate(iso: string) {
@@ -63,7 +73,7 @@ export default function Payroll() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Payroll / DTR</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Cutoff periods and daily time records</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Each cutoff period covers one pay period. Workflow: Open → Compute DTR → Review → Finalize.</p>
         </div>
         <Button onClick={() => setShowDialog(true)}>
           <Plus className="w-4 h-4 mr-2" />
@@ -93,6 +103,9 @@ export default function Payroll() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Created {formatDate(c.createdAt)}
+                  {statusHint(c.status) && (
+                    <span className="block mt-0.5 text-muted-foreground/70">{statusHint(c.status)}</span>
+                  )}
                 </p>
               </div>
               <Button

@@ -49,6 +49,10 @@ export default function Reports() {
         toast({ title: 'No data', description: 'No DTR records to export for this period.', variant: 'destructive' });
         return;
       }
+      const cutoff = cutoffs.find((c) => c.id === selectedCutoff);
+      const dateRange = cutoff
+        ? `${cutoff.periodStart.slice(0, 10)}_to_${cutoff.periodEnd.slice(0, 10)}`
+        : selectedCutoff;
       const headers = Object.keys(rows[0]);
       const csv = [
         headers.join(','),
@@ -58,7 +62,7 @@ export default function Reports() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `dtr-export-${selectedCutoff}.csv`;
+      a.download = `dtr-${dateRange}.csv`;
       a.click();
       URL.revokeObjectURL(url);
       toast({ title: 'Export complete', description: 'DTR data has been downloaded.' });

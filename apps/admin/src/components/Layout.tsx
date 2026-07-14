@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { clearToken, getUser } from '@/lib/auth';
+import { useFlagged, useCashAdvances } from '@/lib/queries';
 
 type NavItem = {
   label: string;
@@ -41,6 +42,16 @@ export function Layout({ children }: LayoutProps) {
   const [location, setLocation] = useLocation();
   const [open, setOpen] = useState(false);
   const user = getUser();
+
+  const { data: flaggedData }  = useFlagged();
+  const { data: advancesData } = useCashAdvances({ status: 'pending', limit: 1 });
+  const flaggedCount  = flaggedData?.meta?.total ?? flaggedData?.data?.length ?? 0;
+  const advancesCount = advancesData?.meta?.total ?? 0;
+
+  const badgeCounts: Record<string, number> = {
+    '/flagged':  flaggedCount,
+    '/advances': advancesCount,
+  };
 
   function handleSignOut() {
     clearToken();
@@ -93,7 +104,14 @@ export function Layout({ children }: LayoutProps) {
             >
               {item.icon}
               {item.label}
-              {isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
+              <span className="ml-auto flex items-center gap-1">
+                {(badgeCounts[item.path] ?? 0) > 0 && (
+                  <span className="min-w-[18px] h-[18px] rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                    {(badgeCounts[item.path] ?? 0) > 99 ? '99+' : badgeCounts[item.path]}
+                  </span>
+                )}
+                {isActive && <ChevronRight className="w-3 h-3" />}
+              </span>
             </Link>
           );
         })}

@@ -28,7 +28,7 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
     if (match) {
       onSuccess(match);
     } else {
-      setError('Employee ID not found');
+      setError('No worker found with that ID. Check your employee number and try again.');
       setPin('');
     }
   }
@@ -38,8 +38,8 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
   return (
     <div className="flex flex-col items-center justify-center w-full h-full bg-slate-900 px-6">
       <div className="w-full max-w-xs">
-        <h2 className="text-white text-2xl font-bold text-center mb-1">Manual Check-In</h2>
-        <p className="text-slate-400 text-sm text-center mb-6">Enter your Employee ID</p>
+        <h2 className="text-white text-2xl font-bold text-center mb-1">Enter Your Employee ID</h2>
+        <p className="text-slate-400 text-sm text-center mb-6">Your employee number, e.g. EMP-001</p>
 
         {/* Display */}
         <div className="bg-slate-800 rounded-xl px-5 py-3 text-center mb-2 min-h-[52px] flex items-center justify-center">
@@ -84,9 +84,9 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
 
         <button
           onClick={onCancel}
-          className="w-full mt-2 py-2 text-slate-400 text-sm"
+          className="w-full mt-2 py-2 text-slate-400 text-sm hover:text-slate-300"
         >
-          Cancel — use camera instead
+          ← Back
         </button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, X, Plus, Wallet } from 'lucide-react';
+import { Check, X, Plus, Wallet, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,38 +42,44 @@ function formatTs(iso: string) {
   });
 }
 
+const STATUS_META: Record<CashAdvance['status'], { label: string; className: string }> = {
+  pending:  { label: 'Pending Approval', className: 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100' },
+  approved: { label: 'Approved',         className: 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100' },
+  rejected: { label: 'Rejected',         className: 'bg-red-100 text-red-700 border-red-200 hover:bg-red-100' },
+  deducted: { label: 'Deducted from Pay', className: 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-100' },
+};
+
 function statusBadge(status: CashAdvance['status']) {
-  const map = {
-    pending:  'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100',
-    approved: 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
-    rejected: 'bg-red-100 text-red-700 border-red-200 hover:bg-red-100',
-    deducted: 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-100',
-  };
-  return (
-    <Badge className={`text-xs capitalize ${map[status]}`}>{status}</Badge>
-  );
+  const s = STATUS_META[status];
+  return <Badge className={`text-xs ${s.className}`}>{s.label}</Badge>;
 }
 
 export default function CashAdvances() {
   const { toast } = useToast();
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  // Request dialog
+  // New request dialog
   const [showRequest, setShowRequest] = useState(false);
   const [reqWorker, setReqWorker]     = useState('');
   const [reqAmount, setReqAmount]     = useState('');
   const [reqReason, setReqReason]     = useState('');
 
-  // Review dialog
-  const [reviewing, setReviewing] = useState<CashAdvance | null>(null);
-  const [reviewNote, setReviewNote] = useState('');
+  // Approve dialog
+  const [approving, setApproving]     = useState<CashAdvance | null>(null);
+  const [approveNote, setApproveNote] = useState('');
+
+  // Reject dialog
+  const [rejecting, setRejecting]     = useState<CashAdvance | null>(null);
+  const [rejectNote, setRejectNote]   = useState('');
 
   const { data: workersData } = useWorkers({ status: 'active', limit: 200 });
   const workers = workersData?.data ?? [];
 
   const statusParam = filterStatus === 'all' ? undefined : filterStatus;
   const { data, isLoading } = useCashAdvances({ status: statusParam, limit: 100 });
+  const { data: pendingData } = useCashAdvances({ status: 'pending', limit: 1 });
   const advances = data?.data ?? [];
+  const pendingTotal = pendingData?.meta?.total ?? 0;
 
   const createAdvance = useCreateCashAdvance();
   const reviewAdvance = useReviewCashAdvance();
@@ -85,7 +91,7 @@ export default function CashAdvances() {
     }
     const amount = parseFloat(reqAmount);
     if (isNaN(amount) || amount <= 0) {
-      toast({ title: 'Invalid amount', variant: 'destructive' });
+      toast({ title: 'Invalid amount', description: 'Amount must be greater than zero.', variant: 'destructive' });
       return;
     }
     try {
@@ -99,36 +105,38 @@ export default function CashAdvances() {
     }
   }
 
-  async function handleReview(decision: 'approved' | 'rejected') {
-    if (!reviewing) return;
+  async function handleApprove() {
+    if (!approving) return;
     try {
-      await reviewAdvance.mutateAsync({ id: reviewing.id, decision, note: reviewNote.trim() || undefined });
-      setReviewing(null);
-      setReviewNote('');
-      toast({
-        title: decision === 'approved' ? 'Advance approved' : 'Advance rejected',
-        description: decision === 'approved'
-          ? `${formatPeso(reviewing.amount)} approved for ${reviewing.worker.name}.`
-          : `Request rejected for ${reviewing.worker.name}.`,
-      });
+      await reviewAdvance.mutateAsync({ id: approving.id, decision: 'approved', note: approveNote.trim() || undefined });
+      toast({ title: 'Advance approved', description: `${formatPeso(approving.amount)} approved for ${approving.worker.name}.` });
+      setApproving(null);
+      setApproveNote('');
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to review.';
+      const msg = e instanceof Error ? e.message : 'Failed to approve.';
       toast({ title: 'Error', description: msg, variant: 'destructive' });
     }
   }
 
-  const pendingCount = advances.filter((a) => a.status === 'pending').length;
+  async function handleReject() {
+    if (!rejecting) return;
+    try {
+      await reviewAdvance.mutateAsync({ id: rejecting.id, decision: 'rejected', note: rejectNote.trim() || undefined });
+      toast({ title: 'Advance rejected', description: `Request rejected for ${rejecting.worker.name}.` });
+      setRejecting(null);
+      setRejectNote('');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to reject.';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    }
+  }
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Cash Advances</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {pendingCount > 0
-              ? `${pendingCount} pending review`
-              : 'Salary advance requests'}
-          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">Salary advance requests for workers</p>
         </div>
         <Button onClick={() => setShowRequest(true)} className="sm:flex-shrink-0">
           <Plus className="w-4 h-4 mr-2" />
@@ -136,17 +144,33 @@ export default function CashAdvances() {
         </Button>
       </div>
 
+      {/* Pending alert — shown when viewing other tabs */}
+      {pendingTotal > 0 && filterStatus !== 'pending' && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-sm text-amber-800">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-500" />
+          <span>
+            {pendingTotal} request{pendingTotal !== 1 ? 's' : ''} waiting for approval.{' '}
+            <button onClick={() => setFilterStatus('pending')} className="underline font-medium">View pending</button>
+          </span>
+        </div>
+      )}
+
       {/* Status filter tabs */}
-      <div className="flex items-center gap-1 border rounded-md p-0.5 bg-muted w-fit mb-4">
+      <div className="flex items-center gap-1 border rounded-md p-0.5 bg-muted w-fit mb-4 flex-wrap">
         {(['all', 'pending', 'approved', 'rejected', 'deducted'] as const).map((s) => (
           <button
             key={s}
             onClick={() => setFilterStatus(s)}
-            className={`px-3 py-1 rounded text-xs font-medium transition-colors capitalize ${
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors capitalize flex items-center gap-1.5 ${
               filterStatus === s ? 'bg-white shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {s}
+            {s === 'pending' && pendingTotal > 0 && (
+              <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {pendingTotal > 9 ? '9+' : pendingTotal}
+              </span>
+            )}
+            {s === 'all' ? 'All' : s === 'deducted' ? 'Deducted' : s.charAt(0).toUpperCase() + s.slice(1)}
           </button>
         ))}
       </div>
@@ -158,7 +182,11 @@ export default function CashAdvances() {
           <Wallet className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <h2 className="font-semibold text-foreground mb-1">No advances found</h2>
           <p className="text-sm text-muted-foreground">
-            {filterStatus === 'all' ? 'No cash advance requests yet.' : `No ${filterStatus} requests.`}
+            {filterStatus === 'all'
+              ? 'No cash advance requests yet.'
+              : filterStatus === 'deducted'
+              ? 'No advances have been deducted from payroll yet.'
+              : `No ${filterStatus} requests.`}
           </p>
         </div>
       ) : (
@@ -186,12 +214,12 @@ export default function CashAdvances() {
                 </div>
 
                 {adv.status === 'pending' && (
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
                       className="border-red-200 text-red-600 hover:bg-red-50"
-                      onClick={() => { setReviewing(adv); setReviewNote(''); }}
+                      onClick={() => { setRejecting(adv); setRejectNote(''); }}
                     >
                       <X className="w-3.5 h-3.5 mr-1" />
                       Reject
@@ -199,7 +227,7 @@ export default function CashAdvances() {
                     <Button
                       size="sm"
                       className="bg-emerald-600 hover:bg-emerald-700"
-                      onClick={() => { setReviewing(adv); setReviewNote(''); }}
+                      onClick={() => { setApproving(adv); setApproveNote(''); }}
                     >
                       <Check className="w-3.5 h-3.5 mr-1" />
                       Approve
@@ -237,26 +265,11 @@ export default function CashAdvances() {
             </div>
             <div>
               <Label htmlFor="amount">Amount (PHP) *</Label>
-              <Input
-                id="amount"
-                type="number"
-                min="1"
-                placeholder="e.g. 2500"
-                value={reqAmount}
-                onChange={(e) => setReqAmount(e.target.value)}
-                className="mt-1"
-              />
+              <Input id="amount" type="number" min="1" placeholder="e.g. 2500" value={reqAmount} onChange={(e) => setReqAmount(e.target.value)} className="mt-1" />
             </div>
             <div>
               <Label htmlFor="reason">Reason *</Label>
-              <Textarea
-                id="reason"
-                placeholder="e.g. Medical emergency, school fees…"
-                value={reqReason}
-                onChange={(e) => setReqReason(e.target.value)}
-                rows={3}
-                className="mt-1"
-              />
+              <Textarea id="reason" placeholder="e.g. Medical emergency, school fees…" value={reqReason} onChange={(e) => setReqReason(e.target.value)} rows={3} className="mt-1" />
             </div>
           </div>
           <DialogFooter>
@@ -268,48 +281,51 @@ export default function CashAdvances() {
         </DialogContent>
       </Dialog>
 
-      {/* Review dialog */}
-      <Dialog open={!!reviewing} onOpenChange={(open) => { if (!open) setReviewing(null); }}>
+      {/* Approve dialog */}
+      <Dialog open={!!approving} onOpenChange={(open) => { if (!open) setApproving(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Review Cash Advance</DialogTitle>
+            <DialogTitle>Approve Cash Advance</DialogTitle>
             <DialogDescription>
-              {reviewing && (
-                <>
-                  <strong>{reviewing.worker.name}</strong> — {formatPeso(reviewing.amount)}
-                  <br />
-                  <span className="italic">"{reviewing.reason}"</span>
-                </>
+              {approving && (
+                <><strong>{approving.worker.name}</strong> — {formatPeso(approving.amount)}<br /><span className="italic">"{approving.reason}"</span></>
               )}
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
             <Label>Note (optional)</Label>
-            <Textarea
-              placeholder="Add a note for the worker or record…"
-              value={reviewNote}
-              onChange={(e) => setReviewNote(e.target.value)}
-              rows={2}
-              className="mt-1"
-            />
+            <Textarea placeholder="e.g. Verified with HR — approved for medical" value={approveNote} onChange={(e) => setApproveNote(e.target.value)} rows={2} className="mt-1" />
           </div>
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
-              onClick={() => handleReview('rejected')}
-              disabled={reviewAdvance.isPending}
-            >
-              <X className="w-4 h-4 mr-1.5" />
-              Reject
-            </Button>
-            <Button
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-              onClick={() => handleReview('approved')}
-              disabled={reviewAdvance.isPending}
-            >
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApproving(null)}>Cancel</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleApprove} disabled={reviewAdvance.isPending}>
               <Check className="w-4 h-4 mr-1.5" />
-              Approve
+              {reviewAdvance.isPending ? 'Approving…' : 'Confirm Approval'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject dialog */}
+      <Dialog open={!!rejecting} onOpenChange={(open) => { if (!open) setRejecting(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Reject Cash Advance</DialogTitle>
+            <DialogDescription>
+              {rejecting && (
+                <><strong>{rejecting.worker.name}</strong> — {formatPeso(rejecting.amount)}</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Label>Reason for rejection *</Label>
+            <Textarea placeholder="e.g. Insufficient balance in advance fund this period" value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} rows={3} className="mt-1" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejecting(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleReject} disabled={reviewAdvance.isPending || !rejectNote.trim()}>
+              <X className="w-4 h-4 mr-1.5" />
+              {reviewAdvance.isPending ? 'Rejecting…' : 'Reject Request'}
             </Button>
           </DialogFooter>
         </DialogContent>

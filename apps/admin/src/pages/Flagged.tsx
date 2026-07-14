@@ -1,5 +1,5 @@
 import { useLocation } from 'wouter';
-import { ArrowRight, CheckCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CardSkeleton } from '@/components/LoadingSkeleton';
@@ -12,20 +12,38 @@ function formatTs(iso: string) {
   });
 }
 
+function confidenceLabel(score: number) {
+  const pct = Math.round(score * 100);
+  if (pct >= 70) return `${pct}% face match`;
+  if (pct >= 50) return `${pct}% face match (low)`;
+  return `${pct}% face match (very low)`;
+}
+
 export default function Flagged() {
   const [, setLocation] = useLocation();
   const { data, isLoading } = useFlagged();
 
   const events = data?.data ?? [];
+  const total  = data?.meta?.total ?? events.length;
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-xl font-semibold text-foreground">Flagged Events</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          {events.length} event{events.length !== 1 ? 's' : ''} requiring review
+          {total} event{total !== 1 ? 's' : ''} need{total === 1 ? 's' : ''} review
         </p>
       </div>
+
+      {!isLoading && events.length > 0 && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-5 text-sm text-amber-800">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-500" />
+          <p>
+            These check-ins had a low face recognition score and could not be auto-approved.
+            Open each one, verify the worker's identity against the timestamp, then approve or reject.
+          </p>
+        </div>
+      )}
 
       {isLoading ? (
         <CardSkeleton count={3} />
@@ -46,16 +64,17 @@ export default function Flagged() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-sm font-semibold">{ev.worker.name}</h2>
+                    <span className="text-xs text-muted-foreground font-mono">{ev.worker.employeeNo}</span>
                     <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100">
                       Needs Review
                     </Badge>
-                    <Badge className="text-xs bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-100 capitalize">
-                      {ev.eventType}
+                    <Badge className="text-xs bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-100">
+                      {ev.eventType === 'in' ? 'Clock In' : 'Clock Out'}
                     </Badge>
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-muted-foreground">
                     <span>{formatTs(ev.serverTs)}</span>
-                    <span>Confidence: <strong className="text-foreground">{(ev.confidenceScore * 100).toFixed(0)}%</strong></span>
+                    <span className="text-amber-600 font-medium">{confidenceLabel(ev.confidenceScore)}</span>
                   </div>
                 </div>
                 <Button

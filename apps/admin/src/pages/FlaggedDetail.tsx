@@ -23,6 +23,15 @@ function formatTs(iso: string) {
   });
 }
 
+function matchMethodLabel(method: string) {
+  const map: Record<string, string> = {
+    face:               'Face scan (high confidence)',
+    face_low_confidence:'Face scan (low confidence)',
+    manual_exception:   'Employee ID entry',
+  };
+  return map[method] ?? method;
+}
+
 export default function FlaggedDetail() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
@@ -30,8 +39,10 @@ export default function FlaggedDetail() {
   const { data } = useFlagged();
   const reviewFlagged = useReviewFlagged();
 
-  const [showRejectDialog, setShowRejectDialog] = useState(false);
-  const [reason, setReason] = useState('');
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showRejectDialog, setShowRejectDialog]   = useState(false);
+  const [approveNote, setApproveNote] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
 
   const event = data?.data.find((e) => e.id === id);
 
@@ -39,15 +50,20 @@ export default function FlaggedDetail() {
     return (
       <div className="p-6">
         <p className="text-muted-foreground">Event not found or already reviewed.</p>
-        <Button variant="link" onClick={() => setLocation('/flagged')}>Back to Flagged Events</Button>
+        <Button variant="link" onClick={() => setLocation('/flagged')}>← Back to Flagged Events</Button>
       </div>
     );
   }
 
   async function handleApprove() {
     try {
-      await reviewFlagged.mutateAsync({ id: event!.id, decision: 'approve', reason: 'Verified by admin' });
+      await reviewFlagged.mutateAsync({
+        id: event!.id,
+        decision: 'approve',
+        reason: approveNote.trim() || 'Verified by reviewer',
+      });
       toast({ title: 'Event approved', description: 'Attendance record has been approved.' });
+      setShowApproveDialog(false);
       setLocation('/flagged');
     } catch {
       toast({ title: 'Error', description: 'Failed to approve event.', variant: 'destructive' });
@@ -55,12 +71,12 @@ export default function FlaggedDetail() {
   }
 
   async function handleReject() {
-    if (!reason.trim()) {
+    if (!rejectReason.trim()) {
       toast({ title: 'Please enter a reason', variant: 'destructive' });
       return;
     }
     try {
-      await reviewFlagged.mutateAsync({ id: event!.id, decision: 'reject', reason });
+      await reviewFlagged.mutateAsync({ id: event!.id, decision: 'reject', reason: rejectReason });
       toast({ title: 'Event rejected', description: 'Attendance record has been rejected.' });
       setShowRejectDialog(false);
       setLocation('/flagged');
@@ -84,15 +100,20 @@ export default function FlaggedDetail() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-semibold">{event.worker.name}</h1>
             <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100">Pending Review</Badge>
-            <Badge className="text-xs bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-100 capitalize">{event.eventType}</Badge>
+            <Badge className="text-xs bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-100">
+              {event.eventType === 'in' ? 'Clock In' : 'Clock Out'}
+            </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">{event.worker.employeeNo}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Verify that this worker was actually present at the recorded time before approving.
+          </p>
         </div>
         <div className="flex items-center gap-2 sm:flex-shrink-0">
           <Button
             variant="outline"
             className="flex-1 sm:flex-none border-red-200 text-red-600 hover:bg-red-50"
-            onClick={() => setShowRejectDialog(true)}
+            onClick={() => { setRejectReason(''); setShowRejectDialog(true); }}
             disabled={reviewFlagged.isPending}
           >
             <X className="w-4 h-4 mr-1.5" />
@@ -100,7 +121,7 @@ export default function FlaggedDetail() {
           </Button>
           <Button
             className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700"
-            onClick={handleApprove}
+            onClick={() => { setApproveNote(''); setShowApproveDialog(true); }}
             disabled={reviewFlagged.isPending}
           >
             <Check className="w-4 h-4 mr-1.5" />
@@ -117,39 +138,68 @@ export default function FlaggedDetail() {
             <p className="font-medium">{formatTs(event.serverTs)}</p>
           </div>
           <div>
-            <p className="text-muted-foreground text-xs uppercase tracking-wider font-medium mb-1">Event Type</p>
-            <p className="font-medium capitalize">{event.eventType}</p>
+            <p className="text-muted-foreground text-xs uppercase tracking-wider font-medium mb-1">Action</p>
+            <p className="font-medium">{event.eventType === 'in' ? 'Clock In' : 'Clock Out'}</p>
           </div>
           <div>
-            <p className="text-muted-foreground text-xs uppercase tracking-wider font-medium mb-1">Confidence Score</p>
-            <p className="font-medium">{(event.confidenceScore * 100).toFixed(1)}%</p>
+            <p className="text-muted-foreground text-xs uppercase tracking-wider font-medium mb-1">Face Match Score</p>
+            <p className="font-medium text-amber-600">{(event.confidenceScore * 100).toFixed(1)}% — below threshold</p>
           </div>
           <div>
-            <p className="text-muted-foreground text-xs uppercase tracking-wider font-medium mb-1">Match Method</p>
-            <p className="font-medium capitalize">{event.matchMethod}</p>
+            <p className="text-muted-foreground text-xs uppercase tracking-wider font-medium mb-1">How They Checked In</p>
+            <p className="font-medium">{matchMethodLabel(event.matchMethod)}</p>
           </div>
         </div>
       </div>
 
+      {/* Approve dialog */}
+      <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Approve This Event</DialogTitle>
+            <DialogDescription>
+              Confirm that <strong>{event.worker.name}</strong> was present at {formatTs(event.serverTs)}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Label>Note (optional)</Label>
+            <Textarea
+              placeholder="e.g. Confirmed present — badge photo matched"
+              className="mt-1"
+              value={approveNote}
+              onChange={(e) => setApproveNote(e.target.value)}
+              rows={2}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApproveDialog(false)}>Cancel</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleApprove} disabled={reviewFlagged.isPending}>
+              {reviewFlagged.isPending ? 'Approving…' : 'Confirm Approval'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject dialog */}
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Reject Event</DialogTitle>
-            <DialogDescription>Please provide a reason for rejection.</DialogDescription>
+            <DialogTitle>Reject This Event</DialogTitle>
+            <DialogDescription>Please explain why this record is being rejected.</DialogDescription>
           </DialogHeader>
           <div className="py-2">
             <Label>Reason *</Label>
             <Textarea
-              placeholder="e.g. Face not recognized — worker used manual sign-in"
+              placeholder="e.g. Worker was absent — someone else attempted to scan"
               className="mt-1"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
               rows={3}
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRejectDialog(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleReject} disabled={reviewFlagged.isPending}>
+            <Button variant="destructive" onClick={handleReject} disabled={reviewFlagged.isPending || !rejectReason.trim()}>
               {reviewFlagged.isPending ? 'Rejecting…' : 'Reject Event'}
             </Button>
           </DialogFooter>

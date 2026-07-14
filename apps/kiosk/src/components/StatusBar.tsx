@@ -50,15 +50,15 @@ export function StatusBar({ isOnline, pendingCount, rosterSize, lastRefreshedAt 
             className={`font-semibold px-2 py-0.5 rounded-full ${
               pendingCount > 5 ? 'bg-orange-500 text-white' : 'text-yellow-400'
             }`}
-            title="Events pending sync to server"
+            title="Attendance events queued — will sync when online"
           >
-            ⏳ {pendingCount}
+            {pendingCount} unsynced
           </span>
         ) : (
-          isOnline && <span className="text-green-400/60 text-xs">✓ synced</span>
+          isOnline && <span className="text-green-400/60 text-xs">✓ all synced</span>
         )}
         <span className={isOnline ? 'text-green-400' : 'text-red-400'}>
-          {isOnline ? '● Online' : '● Offline'}
+          {isOnline ? '● Online' : '● Offline — scans save locally'}
         </span>
       </div>
     </div>

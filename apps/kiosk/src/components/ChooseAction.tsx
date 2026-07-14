@@ -32,6 +32,8 @@ export function ChooseAction({ worker, onChoose, onCancel, rateLimitError }: Pro
 
   return (
     <div className="flex flex-col items-center justify-center w-full h-full bg-slate-900 text-white px-8">
+      <p className="text-slate-400 text-sm tracking-widest uppercase mb-6">Is this you?</p>
+
       {/* Worker avatar + name */}
       <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-4xl font-black mb-4">
         {initials(worker.name)}

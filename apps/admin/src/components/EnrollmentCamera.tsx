@@ -170,8 +170,8 @@ export function EnrollmentCamera({ workerId, onResult }: Props) {
   return (
     <div className="space-y-4">
       <div className="relative w-full max-w-md mx-auto aspect-video bg-black rounded overflow-hidden">
-        <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
-        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
+        <video ref={videoRef} className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} muted playsInline />
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" style={{ transform: 'scaleX(-1)' }} />
       </div>
 
       <div className="flex items-center gap-4 justify-center">

@@ -63,6 +63,7 @@ export function CameraView({
       <video
         ref={videoRef}
         className="w-full h-full object-cover"
+        style={{ transform: 'scaleX(-1)' }}
         autoPlay
         muted
         playsInline
@@ -70,6 +71,7 @@ export function CameraView({
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full pointer-events-none"
+        style={{ transform: 'scaleX(-1)' }}
       />
       {prompt && (
         <div className="absolute bottom-8 left-0 right-0 flex justify-center">

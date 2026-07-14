@@ -41,12 +41,6 @@ export function ChooseAction({ worker, onChoose, onCancel, rateLimitError }: Pro
         {worker.flagged ? 'Low confidence — verify identity' : 'Face recognized'}
       </p>
 
-      {rateLimitError && (
-        <div className="w-full max-w-sm mb-6 px-5 py-3 bg-amber-500/20 border border-amber-400/50 rounded-xl text-amber-300 text-sm text-center">
-          {rateLimitError}
-        </div>
-      )}
-
       {/* Clock In */}
       <button
         onClick={() => onChoose('in')}

@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadModels } from './lib/faceApi';
 import { refreshRoster, getRoster, getLastRefreshedAt } from './lib/roster';
 import { findBestMatch } from './lib/matcher';
-import { recordEvent, isRateLimited, getExpectedEventType, getPendingCount } from './lib/queue';
+import { recordEvent, getExpectedEventType, getPendingCount } from './lib/queue';
 import { startSyncLoop, runSync } from './lib/sync';
-import { playSuccess, playFlagged, playFail, playRateLimited } from './lib/audio';
+import { playSuccess, playFlagged, playFail } from './lib/audio';
 import { useCamera } from './hooks/useCamera';
 import { useFaceDetection } from './hooks/useFaceDetection';
 import { useLiveness } from './hooks/useLiveness';
@@ -22,8 +22,8 @@ export default function App() {
   const [phase, setPhase]                     = useState<KioskPhase>('init');
   const [loadMsg, setLoadMsg]                 = useState('Loading face recognition models…');
   const [result, setResult]                   = useState<CheckinResult | null>(null);
+  const [selectedAction, setSelectedAction]   = useState<EventType | null>(null);
   const [matchedWorker, setMatchedWorker]     = useState<MatchedWorker | null>(null);
-  const [chooseError, setChooseError]         = useState<string | null>(null);
   const [pendingCount, setPending]            = useState(0);
   const [rosterSize, setRosterSize]           = useState(0);
   const [isOnline, setIsOnline]               = useState(navigator.onLine);
@@ -36,8 +36,8 @@ export default function App() {
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const matchingRef = useRef(false);
 
-  // ── Camera + detection (declared early so handleMatch can capture them) ──
-  const cameraActive = phase === 'idle' || phase === 'liveness' || phase === 'matching';
+  // Camera only active after an action has been selected
+  const cameraActive = phase === 'scanning' || phase === 'liveness' || phase === 'matching';
   const { ready: cameraReady, error: cameraError } = useCamera(videoRef);
   const detection = useFaceDetection(videoRef, cameraReady, cameraActive);
   const liveness  = useLiveness(detection);
@@ -101,23 +101,25 @@ export default function App() {
     return () => clearInterval(id);
   }, [phase]);
 
-  // ── Shared record logic (eventType is now explicit, chosen by worker) ────
-  const recordCheckin = useCallback(async (
-    worker: MatchedWorker,
+  // ── Worker selects action on idle screen ─────────────────────────────────
+  const handleSelectAction = useCallback((action: EventType) => {
+    setSelectedAction(action);
+    setPhase('scanning');
+  }, []);
+
+  // ── Cancel scanning, return to action selection ───────────────────────────
+  const handleCancelScan = useCallback(() => {
+    setSelectedAction(null);
+    liveness.reset();
+    matchingRef.current = false;
+    setPhase('idle');
+  }, [liveness]);
+
+  // ── Record the event and show result ────────────────────────────────────
+  const doRecord = useCallback(async (
+    worker: { workerId: string; name: string; confidence: number; matchMethod: MatchedWorker['matchMethod']; flagged: boolean },
     eventType: EventType,
   ): Promise<CheckinResult> => {
-    const rateLimited = await isRateLimited(worker.workerId, eventType);
-
-    if (rateLimited) {
-      playRateLimited();
-      const direction = eventType === 'in' ? 'Clock In' : 'Clock Out';
-      return {
-        kind: 'rate_limited',
-        workerName: worker.name,
-        message: `${direction} already recorded recently — please wait`,
-      };
-    }
-
     await recordEvent({
       clientEventId:    crypto.randomUUID(),
       workerId:         worker.workerId,
@@ -130,68 +132,34 @@ export default function App() {
     setPending((n) => n + 1);
     runSync((n) => setPending(n));
 
-    const time = new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+    const time  = new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
     const label = eventType === 'in' ? 'Clocked in' : 'Clocked out';
 
     if (worker.flagged) {
       playFlagged();
-      return {
-        kind: 'flagged',
-        workerName: worker.name,
-        eventType,
-        confidence: worker.confidence,
-        message: `${label} at ${time} — flagged for HR review`,
-      };
+      return { kind: 'flagged', workerName: worker.name, eventType, confidence: worker.confidence, message: `${label} at ${time} — flagged for HR review` };
     }
     playSuccess();
-    return {
-      kind: 'success',
-      workerName: worker.name,
-      eventType,
-      confidence: worker.confidence,
-      message: `${label} at ${time}`,
-    };
+    return { kind: 'success', workerName: worker.name, eventType, confidence: worker.confidence, message: `${label} at ${time}` };
   }, []);
 
-  // ── Worker chose clock-in or clock-out ───────────────────────────────────
-  const handleChoose = useCallback(async (eventType: EventType) => {
-    if (!matchedWorker) return;
-    setChooseError(null);
-
-    // Rate-limit check before recording — show error inline on the choose screen
-    const rateLimited = await isRateLimited(matchedWorker.workerId, eventType);
-    if (rateLimited) {
-      playRateLimited();
-      const direction = eventType === 'in' ? 'Clock In' : 'Clock Out';
-      setChooseError(`${direction} already recorded within the last few minutes.`);
-      return;
-    }
-
-    const checkinResult = await recordCheckin(matchedWorker, eventType);
+  // ── Show result then return to idle ─────────────────────────────────────
+  const showResult = useCallback((checkinResult: CheckinResult) => {
     setResult(checkinResult);
+    setSelectedAction(null);
     setMatchedWorker(null);
-    setChooseError(null);
     setPhase('result');
-
     setTimeout(() => {
       setResult(null);
       matchingRef.current = false;
+      liveness.reset();
       setPhase('idle');
     }, RESULT_DISPLAY_MS);
-  }, [matchedWorker, recordCheckin]);
-
-  // ── Cancel choose screen ─────────────────────────────────────────────────
-  const handleCancelChoose = useCallback(() => {
-    setMatchedWorker(null);
-    setChooseError(null);
-    liveness.reset();
-    matchingRef.current = false;
-    setPhase('idle');
   }, [liveness]);
 
   // ── Face match handler ───────────────────────────────────────────────────
   const handleMatch = useCallback(async (descriptor: Float32Array) => {
-    if (matchingRef.current) return;
+    if (matchingRef.current || !selectedAction) return;
     matchingRef.current = true;
     setPhase('matching');
 
@@ -201,40 +169,27 @@ export default function App() {
 
       if (!match || match.distance > MATCH_DIST_LOW) {
         playFail();
-        setResult({ kind: 'no_match', message: 'Face not recognized — try PIN' });
-        setPhase('result');
-        setTimeout(() => {
-          setResult(null);
-          liveness.reset();
-          matchingRef.current = false;
-          setPhase('idle');
-        }, RESULT_DISPLAY_MS);
+        showResult({ kind: 'no_match', message: 'Face not recognized — try Employee ID' });
         return;
       }
 
-      const flagged           = match.distance > MATCH_DIST_HIGH;
-      const defaultEventType  = await getExpectedEventType(match.workerId);
-
-      setMatchedWorker({
-        workerId:         match.workerId,
-        name:             match.name,
-        confidence:       match.confidence,
-        matchMethod:      flagged ? 'face_low_confidence' : 'face',
-        flagged,
-        defaultEventType,
-      });
-      setPhase('choose');
+      const flagged = match.distance > MATCH_DIST_HIGH;
+      const checkinResult = await doRecord(
+        { workerId: match.workerId, name: match.name, confidence: match.confidence, matchMethod: flagged ? 'face_low_confidence' : 'face', flagged },
+        selectedAction,
+      );
+      showResult(checkinResult);
     } catch {
       matchingRef.current = false;
-      setPhase('idle');
+      setPhase('scanning');
       liveness.reset();
     }
-  }, [liveness]);
+  }, [selectedAction, doRecord, showResult, liveness]);
 
   // ── Phase transitions ─────────────────────────────────────────────────────
   useEffect(() => {
-    if (phase === 'idle' && detection.detected) setPhase('liveness');
-    if (phase === 'liveness' && !detection.detected) { setPhase('idle'); liveness.reset(); }
+    if (phase === 'scanning' && detection.detected) setPhase('liveness');
+    if (phase === 'liveness' && !detection.detected) { setPhase('scanning'); liveness.reset(); }
   }, [detection.detected, phase]);
 
   useEffect(() => {
@@ -248,18 +203,24 @@ export default function App() {
     setPhase('matching');
     try {
       const defaultEventType = await getExpectedEventType(entry.workerId);
-      setMatchedWorker({
-        workerId:        entry.workerId,
-        name:            entry.name,
-        confidence:      1,
-        matchMethod:     'manual_exception',
-        flagged:         false,
-        defaultEventType,
-      });
+      setMatchedWorker({ workerId: entry.workerId, name: entry.name, confidence: 1, matchMethod: 'manual_exception', flagged: false, defaultEventType });
       setPhase('choose');
     } catch {
       setPhase('idle');
     }
+  }, []);
+
+  // ── PIN choose handler ────────────────────────────────────────────────────
+  const handleChoose = useCallback(async (eventType: EventType) => {
+    if (!matchedWorker) return;
+    const checkinResult = await doRecord(matchedWorker, eventType);
+    showResult(checkinResult);
+  }, [matchedWorker, doRecord, showResult]);
+
+  const handleCancelChoose = useCallback(() => {
+    setMatchedWorker(null);
+    matchingRef.current = false;
+    setPhase('idle');
   }, []);
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -272,7 +233,7 @@ export default function App() {
         lastRefreshedAt={lastRefreshedAt}
       />
 
-      <div className="flex-1 relative mt-9">
+      <div className="flex-1 relative mt-9 overflow-hidden">
         {phase === 'init' && (
           <div className="flex flex-col items-center justify-center h-full gap-4">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -293,8 +254,38 @@ export default function App() {
           </div>
         )}
 
-        {cameraError && phase !== 'init' && phase !== 'error' && (
-          <div className="flex flex-col items-center justify-center h-full gap-4 px-8 text-center">
+        {/* ── Idle: action selection screen ───────────────────────────────── */}
+        {phase === 'idle' && (
+          <div className="flex flex-col items-center justify-center h-full gap-5 px-8">
+            <p className="text-slate-400 text-sm tracking-widest uppercase mb-2">What would you like to do?</p>
+
+            <button
+              onClick={() => handleSelectAction('in')}
+              className="w-full max-w-sm py-8 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white text-3xl font-black tracking-wide transition-transform shadow-lg shadow-emerald-500/30"
+            >
+              Clock In
+            </button>
+
+            <button
+              onClick={() => handleSelectAction('out')}
+              className="w-full max-w-sm py-8 rounded-2xl bg-orange-500 hover:bg-orange-400 active:scale-95 text-white text-3xl font-black tracking-wide transition-transform shadow-lg shadow-orange-500/30"
+            >
+              Clock Out
+            </button>
+
+            <button
+              onClick={() => setPhase('pin')}
+              className="w-full max-w-sm py-4 rounded-2xl bg-slate-700 hover:bg-slate-600 active:scale-95 text-white text-lg font-semibold transition-transform border border-slate-600 flex items-center justify-center gap-2"
+            >
+              <span className="text-xl">🪪</span>
+              Use Employee ID
+            </button>
+          </div>
+        )}
+
+        {/* ── Camera: scanning, liveness, matching ────────────────────────── */}
+        {cameraError && cameraActive && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
             <p className="text-4xl">📷</p>
             <p className="text-red-400 text-lg font-medium">Camera unavailable</p>
             <p className="text-slate-400 text-sm max-w-xs">{cameraError}</p>
@@ -304,8 +295,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Always mounted so videoRef.current is set when useCamera's effect runs */}
-        <div className={`h-full w-full ${!cameraActive || cameraError ? 'hidden' : ''}`}>
+        {/* Always mounted while camera phases are possible */}
+        <div className={`absolute inset-0 ${!cameraActive || cameraError ? 'hidden' : ''}`}>
           <CameraView
             videoRef={videoRef}
             canvasRef={canvasRef}
@@ -313,17 +304,11 @@ export default function App() {
             livenessStatus={liveness.status}
             livenessFrameCount={liveness.frameCount}
             phase={phase}
+            selectedAction={selectedAction ?? undefined}
+            onCancel={phase === 'scanning' ? handleCancelScan : undefined}
+            onUseEmployeeId={phase === 'scanning' ? () => { handleCancelScan(); setPhase('pin'); } : undefined}
           />
         </div>
-
-        {phase === 'idle' && !cameraError && (
-          <button
-            onClick={() => setPhase('pin')}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 text-xs text-white/50 hover:text-white/80 bg-white/5 hover:bg-white/10 rounded-full transition"
-          >
-            Use Employee ID instead
-          </button>
-        )}
 
         {phase === 'pin' && (
           <div className="absolute inset-0">
@@ -337,7 +322,7 @@ export default function App() {
               worker={matchedWorker}
               onChoose={handleChoose}
               onCancel={handleCancelChoose}
-              rateLimitError={chooseError}
+              rateLimitError={null}
             />
           </div>
         )}

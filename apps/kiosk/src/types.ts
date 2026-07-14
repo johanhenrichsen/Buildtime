@@ -3,12 +3,13 @@ export type MatchMethod = 'face' | 'face_low_confidence' | 'manual_exception';
 
 export type KioskPhase =
   | 'init'       // loading models + roster
-  | 'idle'       // ready, no face in frame
+  | 'idle'       // action selection screen (Clock In / Clock Out)
+  | 'scanning'   // action chosen, camera active, waiting for face
   | 'liveness'   // face detected, collecting frames
   | 'matching'   // liveness passed, running matcher
-  | 'choose'     // matched — worker picks clock in or out
+  | 'choose'     // PIN path only — worker picks clock in or out
   | 'result'     // showing outcome
-  | 'pin'        // manual PIN fallback entry
+  | 'pin'        // employee ID entry
   | 'error';     // unrecoverable setup error
 
 export interface MatchedWorker {

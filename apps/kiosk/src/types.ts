@@ -6,9 +6,19 @@ export type KioskPhase =
   | 'idle'       // ready, no face in frame
   | 'liveness'   // face detected, collecting frames
   | 'matching'   // liveness passed, running matcher
+  | 'choose'     // matched — worker picks clock in or out
   | 'result'     // showing outcome
   | 'pin'        // manual PIN fallback entry
   | 'error';     // unrecoverable setup error
+
+export interface MatchedWorker {
+  workerId: string;
+  name: string;
+  confidence: number;
+  matchMethod: MatchMethod;
+  flagged: boolean;
+  defaultEventType: EventType;
+}
 
 export type ResultKind = 'success' | 'flagged' | 'no_match' | 'rate_limited';
 

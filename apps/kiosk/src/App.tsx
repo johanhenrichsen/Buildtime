@@ -11,9 +11,10 @@ import { useLiveness } from './hooks/useLiveness';
 import { StatusBar } from './components/StatusBar';
 import { CameraView } from './components/CameraView';
 import { CheckinResult as CheckinResultView } from './components/CheckinResult';
+import { ChooseAction } from './components/ChooseAction';
 import { PinEntry } from './components/PinEntry';
 import { MATCH_DIST_HIGH, MATCH_DIST_LOW, RESULT_DISPLAY_MS } from './constants';
-import type { CheckinResult, KioskPhase, RosterEntry } from './types';
+import type { CheckinResult, EventType, KioskPhase, MatchedWorker, RosterEntry } from './types';
 
 const AUTO_RETRY_DELAY_MS = 30_000;
 
@@ -21,6 +22,8 @@ export default function App() {
   const [phase, setPhase]                     = useState<KioskPhase>('init');
   const [loadMsg, setLoadMsg]                 = useState('Loading face recognition models…');
   const [result, setResult]                   = useState<CheckinResult | null>(null);
+  const [matchedWorker, setMatchedWorker]     = useState<MatchedWorker | null>(null);
+  const [chooseError, setChooseError]         = useState<string | null>(null);
   const [pendingCount, setPending]            = useState(0);
   const [rosterSize, setRosterSize]           = useState(0);
   const [isOnline, setIsOnline]               = useState(navigator.onLine);
@@ -98,41 +101,93 @@ export default function App() {
     return () => clearInterval(id);
   }, [phase]);
 
-  // ── Shared record logic ──────────────────────────────────────────────────
+  // ── Shared record logic (eventType is now explicit, chosen by worker) ────
   const recordCheckin = useCallback(async (
-    workerId: string,
-    name: string,
-    confidence: number,
-    matchMethod: 'face' | 'face_low_confidence' | 'manual_exception',
-    flagged: boolean,
+    worker: MatchedWorker,
+    eventType: EventType,
   ): Promise<CheckinResult> => {
-    const eventType   = await getExpectedEventType(workerId);
-    const rateLimited = await isRateLimited(workerId, eventType);
+    const rateLimited = await isRateLimited(worker.workerId, eventType);
 
     if (rateLimited) {
       playRateLimited();
-      return { kind: 'rate_limited', workerName: name, message: 'Already scanned recently — please wait' };
+      const direction = eventType === 'in' ? 'Clock In' : 'Clock Out';
+      return {
+        kind: 'rate_limited',
+        workerName: worker.name,
+        message: `${direction} already recorded recently — please wait`,
+      };
     }
 
     await recordEvent({
-      clientEventId:   crypto.randomUUID(),
-      workerId,
+      clientEventId:    crypto.randomUUID(),
+      workerId:         worker.workerId,
       eventType,
-      clientTs:        new Date().toISOString(),
-      confidenceScore: confidence,
-      matchMethod,
-      flaggedForReview: flagged,
+      clientTs:         new Date().toISOString(),
+      confidenceScore:  worker.confidence,
+      matchMethod:      worker.matchMethod,
+      flaggedForReview: worker.flagged,
     });
     setPending((n) => n + 1);
     runSync((n) => setPending(n));
 
-    if (flagged) {
+    const time = new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+    const label = eventType === 'in' ? 'Clocked in' : 'Clocked out';
+
+    if (worker.flagged) {
       playFlagged();
-      return { kind: 'flagged', workerName: name, eventType, confidence, message: 'Low confidence — flagged for HR review' };
+      return {
+        kind: 'flagged',
+        workerName: worker.name,
+        eventType,
+        confidence: worker.confidence,
+        message: `${label} at ${time} — flagged for HR review`,
+      };
     }
     playSuccess();
-    return { kind: 'success', workerName: name, eventType, confidence, message: 'Check-in recorded' };
+    return {
+      kind: 'success',
+      workerName: worker.name,
+      eventType,
+      confidence: worker.confidence,
+      message: `${label} at ${time}`,
+    };
   }, []);
+
+  // ── Worker chose clock-in or clock-out ───────────────────────────────────
+  const handleChoose = useCallback(async (eventType: EventType) => {
+    if (!matchedWorker) return;
+    setChooseError(null);
+
+    // Rate-limit check before recording — show error inline on the choose screen
+    const rateLimited = await isRateLimited(matchedWorker.workerId, eventType);
+    if (rateLimited) {
+      playRateLimited();
+      const direction = eventType === 'in' ? 'Clock In' : 'Clock Out';
+      setChooseError(`${direction} already recorded within the last few minutes.`);
+      return;
+    }
+
+    const checkinResult = await recordCheckin(matchedWorker, eventType);
+    setResult(checkinResult);
+    setMatchedWorker(null);
+    setChooseError(null);
+    setPhase('result');
+
+    setTimeout(() => {
+      setResult(null);
+      matchingRef.current = false;
+      setPhase('idle');
+    }, RESULT_DISPLAY_MS);
+  }, [matchedWorker, recordCheckin]);
+
+  // ── Cancel choose screen ─────────────────────────────────────────────────
+  const handleCancelChoose = useCallback(() => {
+    setMatchedWorker(null);
+    setChooseError(null);
+    liveness.reset();
+    matchingRef.current = false;
+    setPhase('idle');
+  }, [liveness]);
 
   // ── Face match handler ───────────────────────────────────────────────────
   const handleMatch = useCallback(async (descriptor: Float32Array) => {
@@ -144,37 +199,37 @@ export default function App() {
       const roster = await getRoster();
       const match  = findBestMatch(descriptor, roster);
 
-      let checkinResult: CheckinResult;
-
       if (!match || match.distance > MATCH_DIST_LOW) {
         playFail();
-        checkinResult = { kind: 'no_match', message: 'Face not recognized — try PIN' };
-      } else {
-        const flagged = match.distance > MATCH_DIST_HIGH;
-        checkinResult = await recordCheckin(
-          match.workerId,
-          match.name,
-          match.confidence,
-          flagged ? 'face_low_confidence' : 'face',
-          flagged,
-        );
+        setResult({ kind: 'no_match', message: 'Face not recognized — try PIN' });
+        setPhase('result');
+        setTimeout(() => {
+          setResult(null);
+          liveness.reset();
+          matchingRef.current = false;
+          setPhase('idle');
+        }, RESULT_DISPLAY_MS);
+        return;
       }
 
-      setResult(checkinResult);
-      setPhase('result');
+      const flagged           = match.distance > MATCH_DIST_HIGH;
+      const defaultEventType  = await getExpectedEventType(match.workerId);
 
-      setTimeout(() => {
-        setResult(null);
-        liveness.reset();
-        matchingRef.current = false;
-        setPhase('idle');
-      }, RESULT_DISPLAY_MS);
+      setMatchedWorker({
+        workerId:         match.workerId,
+        name:             match.name,
+        confidence:       match.confidence,
+        matchMethod:      flagged ? 'face_low_confidence' : 'face',
+        flagged,
+        defaultEventType,
+      });
+      setPhase('choose');
     } catch {
       matchingRef.current = false;
       setPhase('idle');
       liveness.reset();
     }
-  }, [recordCheckin, liveness]);
+  }, [liveness]);
 
   // ── Phase transitions ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -192,14 +247,20 @@ export default function App() {
   const handlePinSuccess = useCallback(async (entry: RosterEntry) => {
     setPhase('matching');
     try {
-      const checkinResult = await recordCheckin(entry.workerId, entry.name, 1, 'manual_exception', false);
-      setResult(checkinResult);
-      setPhase('result');
-      setTimeout(() => { setResult(null); setPhase('idle'); }, RESULT_DISPLAY_MS);
+      const defaultEventType = await getExpectedEventType(entry.workerId);
+      setMatchedWorker({
+        workerId:        entry.workerId,
+        name:            entry.name,
+        confidence:      1,
+        matchMethod:     'manual_exception',
+        flagged:         false,
+        defaultEventType,
+      });
+      setPhase('choose');
     } catch {
       setPhase('idle');
     }
-  }, [recordCheckin]);
+  }, []);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -267,6 +328,17 @@ export default function App() {
         {phase === 'pin' && (
           <div className="absolute inset-0">
             <PinEntry roster={pinRoster} onSuccess={handlePinSuccess} onCancel={() => setPhase('idle')} />
+          </div>
+        )}
+
+        {phase === 'choose' && matchedWorker && (
+          <div className="absolute inset-0">
+            <ChooseAction
+              worker={matchedWorker}
+              onChoose={handleChoose}
+              onCancel={handleCancelChoose}
+              rateLimitError={chooseError}
+            />
           </div>
         )}
 

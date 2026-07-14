@@ -102,7 +102,7 @@ export default function WorkerDetail() {
   const isEnrolled = enrollStatus?.enrolled ?? false;
 
   return (
-    <div className="p-6 max-w-3xl space-y-5">
+    <div className="p-4 sm:p-6 max-w-3xl space-y-5">
       <button
         onClick={() => setLocation('/workers')}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"

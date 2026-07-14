@@ -70,7 +70,7 @@ export default function FlaggedDetail() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-4 sm:p-6 max-w-2xl">
       <button
         onClick={() => setLocation('/flagged')}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-5 transition-colors"
@@ -79,7 +79,7 @@ export default function FlaggedDetail() {
         Back to Flagged Events
       </button>
 
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-semibold">{event.worker.name}</h1>
@@ -88,10 +88,10 @@ export default function FlaggedDetail() {
           </div>
           <p className="text-sm text-muted-foreground mt-1">{event.worker.employeeNo}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:flex-shrink-0">
           <Button
             variant="outline"
-            className="border-red-200 text-red-600 hover:bg-red-50"
+            className="flex-1 sm:flex-none border-red-200 text-red-600 hover:bg-red-50"
             onClick={() => setShowRejectDialog(true)}
             disabled={reviewFlagged.isPending}
           >
@@ -99,7 +99,7 @@ export default function FlaggedDetail() {
             Reject
           </Button>
           <Button
-            className="bg-emerald-600 hover:bg-emerald-700"
+            className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700"
             onClick={handleApprove}
             disabled={reviewFlagged.isPending}
           >

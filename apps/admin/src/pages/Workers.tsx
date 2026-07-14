@@ -98,7 +98,7 @@ export default function Workers() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Workers</h1>
@@ -146,9 +146,9 @@ export default function Workers() {
             <thead>
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Worker</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Employee No.</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Daily Rate</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Employee No.</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Daily Rate</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Type</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -172,12 +172,15 @@ export default function Workers() {
                         <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold flex-shrink-0">
                           {getInitials(w.name)}
                         </div>
-                        <span className="font-medium">{w.name}</span>
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{w.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono sm:hidden">{w.employeeNo}</p>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{w.employeeNo}</td>
-                    <td className="px-4 py-3">{formatPeso(w.dailyRate)}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs capitalize">{w.employmentType.replace('-', '‑')}</td>
+                    <td className="px-4 py-3 text-muted-foreground font-mono text-xs hidden sm:table-cell">{w.employeeNo}</td>
+                    <td className="px-4 py-3 hidden md:table-cell">{formatPeso(w.dailyRate)}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs capitalize hidden lg:table-cell">{w.employmentType.replace('-', '‑')}</td>
                     <td className="px-4 py-3">
                       <Badge
                         className={w.status === 'active'

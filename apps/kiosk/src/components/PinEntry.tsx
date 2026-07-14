@@ -58,7 +58,7 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
               <button
                 key={i}
                 onClick={del}
-                className="h-14 rounded-xl bg-slate-700 text-white text-xl font-medium active:bg-slate-600"
+                className="h-16 rounded-xl bg-slate-700 text-white text-xl font-medium active:bg-slate-600"
               >
                 {k}
               </button>
@@ -66,7 +66,7 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
               <button
                 key={i}
                 onClick={() => press(k)}
-                className="h-14 rounded-xl bg-slate-700 text-white text-2xl font-medium active:bg-slate-600"
+                className="h-16 rounded-xl bg-slate-700 text-white text-2xl font-medium active:bg-slate-600"
               >
                 {k}
               </button>

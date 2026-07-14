@@ -19,7 +19,7 @@ export default function Flagged() {
   const events = data?.data ?? [];
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-foreground">Flagged Events</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -40,33 +40,34 @@ export default function Flagged() {
           {events.map((ev) => (
             <div
               key={ev.id}
-              className="bg-card border border-border rounded-lg p-5 flex items-center justify-between"
+              className="bg-card border border-border rounded-lg p-4 sm:p-5"
             >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-sm font-semibold">{ev.worker.name}</h2>
-                  <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100">
-                    Needs Review
-                  </Badge>
-                  <Badge className="text-xs bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-100 capitalize">
-                    {ev.eventType}
-                  </Badge>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-sm font-semibold">{ev.worker.name}</h2>
+                    <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100">
+                      Needs Review
+                    </Badge>
+                    <Badge className="text-xs bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-100 capitalize">
+                      {ev.eventType}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-muted-foreground">
+                    <span>{formatTs(ev.serverTs)}</span>
+                    <span>Confidence: <strong className="text-foreground">{(ev.confidenceScore * 100).toFixed(0)}%</strong></span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 mt-1.5 text-xs text-muted-foreground">
-                  <span>{formatTs(ev.serverTs)}</span>
-                  <span>Confidence: <strong className="text-foreground">{(ev.confidenceScore * 100).toFixed(0)}%</strong></span>
-                  <span className="capitalize">{ev.matchMethod}</span>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0"
+                  onClick={() => setLocation(`/flagged/${ev.id}`)}
+                >
+                  Review
+                  <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="ml-4 flex-shrink-0"
-                onClick={() => setLocation(`/flagged/${ev.id}`)}
-              >
-                Review
-                <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-              </Button>
             </div>
           ))}
         </div>

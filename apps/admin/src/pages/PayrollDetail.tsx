@@ -119,7 +119,7 @@ export default function PayrollDetail() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <button
         onClick={() => setLocation('/payroll')}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-5 transition-colors"
@@ -128,7 +128,7 @@ export default function PayrollDetail() {
         Back to Payroll
       </button>
 
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-semibold">
@@ -138,12 +138,13 @@ export default function PayrollDetail() {
           </div>
           <p className="text-sm text-muted-foreground mt-1">{records.length} records</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:flex-shrink-0">
           <Button
             variant="outline"
             size="sm"
             onClick={handleExport}
             disabled={exportLoading || records.length === 0}
+            className="flex-1 sm:flex-none"
           >
             {exportLoading ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Download className="w-4 h-4 mr-1.5" />}
             Export CSV
@@ -152,6 +153,7 @@ export default function PayrollDetail() {
             size="sm"
             onClick={handleCompute}
             disabled={computeDtr.isPending}
+            className="flex-1 sm:flex-none"
           >
             {computeDtr.isPending ? 'Computing…' : 'Compute DTR'}
           </Button>
@@ -163,8 +165,8 @@ export default function PayrollDetail() {
           <p className="text-muted-foreground">No DTR records yet. Click "Compute DTR" to generate records.</p>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-card border border-border rounded-lg overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm min-w-[700px]">
             <thead>
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Worker</th>

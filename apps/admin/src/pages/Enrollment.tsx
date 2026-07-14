@@ -24,7 +24,7 @@ export default function Enrollment() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-4 sm:p-6 max-w-2xl">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-foreground">Face Enrollment</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Enroll workers for face-recognition check-in</p>

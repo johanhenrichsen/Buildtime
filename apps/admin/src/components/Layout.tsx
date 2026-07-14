@@ -12,6 +12,7 @@ import {
   ChevronRight,
   HardHat,
   Menu,
+  Wallet,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ const NAV: NavItem[] = [
   { label: 'Sites',         path: '/sites',      icon: <Building2 className="w-4 h-4" /> },
   { label: 'Enrollment',    path: '/enrollment', icon: <Camera className="w-4 h-4" /> },
   { label: 'Payroll / DTR', path: '/payroll',    icon: <FileText className="w-4 h-4" /> },
+  { label: 'Cash Advances', path: '/advances',   icon: <Wallet className="w-4 h-4" /> },
   { label: 'Flagged Events',path: '/flagged',    icon: <Flag className="w-4 h-4" /> },
   { label: 'Audit Log',     path: '/audit',      icon: <Shield className="w-4 h-4" /> },
   { label: 'Reports',       path: '/reports',    icon: <BarChart2 className="w-4 h-4" /> },

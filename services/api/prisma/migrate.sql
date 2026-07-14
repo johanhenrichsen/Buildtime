@@ -218,6 +218,26 @@ CREATE UNIQUE INDEX IF NOT EXISTS uix_attendance_client_event_id
     ON attendance_events (kiosk_id, client_event_id)
     WHERE client_event_id IS NOT NULL;
 
+-- ── Cash advances ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS cash_advances (
+    id           UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    worker_id    UUID          NOT NULL REFERENCES workers(id),
+    amount       NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+    reason       TEXT          NOT NULL,
+    status       TEXT          NOT NULL DEFAULT 'pending'
+                 CHECK (status IN ('pending', 'approved', 'rejected', 'deducted')),
+    requested_at TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    reviewed_by  UUID          REFERENCES workers(id),
+    reviewed_at  TIMESTAMPTZ,
+    review_note  TEXT,
+    cutoff_id    UUID          REFERENCES payroll_cutoffs(id),
+    created_at   TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cash_advances_worker  ON cash_advances(worker_id, requested_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cash_advances_status  ON cash_advances(status) WHERE status = 'pending';
+
 -- ── Seed: roles & permissions ─────────────────────────────────────────────────
 INSERT INTO permissions (name) VALUES
     ('checkin_kiosk'),

@@ -227,6 +227,66 @@ export async function reviewFlagged(id: string, decision: 'approve' | 'reject', 
   return json(res);
 }
 
+// ── Cash advances ─────────────────────────────────────────────────────────────
+
+export interface CashAdvance {
+  id: string;
+  workerId: string;
+  amount: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected' | 'deducted';
+  requestedAt: string;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  cutoffId: string | null;
+  worker: { id: string; name: string; employeeNo: string };
+  reviewer: { id: string; name: string } | null;
+}
+
+export async function getCashAdvances(params?: {
+  workerId?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<PaginatedResponse<CashAdvance>> {
+  const qs = new URLSearchParams();
+  if (params?.workerId) qs.set('workerId', params.workerId);
+  if (params?.status)   qs.set('status',   params.status);
+  if (params?.page)     qs.set('page',     String(params.page));
+  if (params?.limit)    qs.set('limit',    String(params.limit));
+  const res = await apiFetch(`/api/v1/cash-advances?${qs}`);
+  return json(res);
+}
+
+export async function createCashAdvance(data: {
+  workerId: string;
+  amount: number;
+  reason: string;
+}): Promise<CashAdvance> {
+  const res = await apiFetch('/api/v1/cash-advances', { method: 'POST', body: JSON.stringify(data) });
+  return json(res);
+}
+
+export async function reviewCashAdvance(
+  id: string,
+  decision: 'approved' | 'rejected',
+  note?: string,
+): Promise<CashAdvance> {
+  const res = await apiFetch(`/api/v1/cash-advances/${id}/review`, {
+    method: 'PATCH',
+    body: JSON.stringify({ decision, note }),
+  });
+  return json(res);
+}
+
+export async function markCashAdvanceDeducted(id: string, cutoffId: string): Promise<CashAdvance> {
+  const res = await apiFetch(`/api/v1/cash-advances/${id}/deduct`, {
+    method: 'PATCH',
+    body: JSON.stringify({ cutoffId }),
+  });
+  return json(res);
+}
+
 // ── Audit log ─────────────────────────────────────────────────────────────────
 
 export interface AuditEntry {

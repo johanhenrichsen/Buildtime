@@ -11,6 +11,7 @@ import { RulesModule } from './rules/rules.module';
 import { DtrModule } from './dtr/dtr.module';
 import { AuditModule } from './audit/audit.module';
 import { RolesModule } from './roles/roles.module';
+import { CashAdvancesModule } from './cash-advances/cash-advances.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
     DtrModule,
     AuditModule,
     RolesModule,
+    CashAdvancesModule,
   ],
 })
 export class AppModule {}

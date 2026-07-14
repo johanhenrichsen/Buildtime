@@ -103,6 +103,8 @@ model Worker {
   auditActions       AuditLog[]        @relation("AuditActor")
   payrollRuns        PayrollRun[]      @relation("PayrollGeneratedBy")
   payrollLines       PayrollLine[]
+  cashAdvances       CashAdvance[]     @relation("WorkerCashAdvances")
+  reviewedAdvances   CashAdvance[]     @relation("CashAdvanceReviewer")
 
   @@map("workers")
 }
@@ -154,8 +156,9 @@ model PayrollCutoff {
   status      String   @default("open")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  dtrRecords  DtrRecord[]
-  payrollRuns PayrollRun[]
+  dtrRecords    DtrRecord[]
+  payrollRuns   PayrollRun[]
+  cashAdvances  CashAdvance[]
 
   @@map("payroll_cutoffs")
 }
@@ -213,6 +216,27 @@ model PayrollLine {
 
   @@unique([payrollRunId, workerId])
   @@map("payroll_lines")
+}
+
+model CashAdvance {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workerId    String    @map("worker_id") @db.Uuid
+  amount      Decimal   @db.Decimal(10, 2)
+  reason      String
+  status      String    @default("pending") // pending | approved | rejected | deducted
+  requestedAt DateTime  @default(now()) @map("requested_at") @db.Timestamptz(6)
+  reviewedBy  String?   @map("reviewed_by") @db.Uuid
+  reviewedAt  DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  reviewNote  String?   @map("review_note")
+  cutoffId    String?   @map("cutoff_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  worker   Worker         @relation("WorkerCashAdvances", fields: [workerId], references: [id])
+  reviewer Worker?        @relation("CashAdvanceReviewer", fields: [reviewedBy], references: [id])
+  cutoff   PayrollCutoff? @relation(fields: [cutoffId], references: [id])
+
+  @@map("cash_advances")
 }
 
 model AuditLog {

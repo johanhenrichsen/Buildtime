@@ -118,3 +118,36 @@ export function useReviewFlagged() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['flagged'] }),
   })
 }
+
+export function useCashAdvances(params?: { workerId?: string; status?: string; page?: number; limit?: number }) {
+  return useQuery({
+    queryKey: ['cash-advances', params],
+    queryFn: () => api.getCashAdvances(params),
+  })
+}
+
+export function useCreateCashAdvance() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Parameters<typeof api.createCashAdvance>[0]) => api.createCashAdvance(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cash-advances'] }),
+  })
+}
+
+export function useReviewCashAdvance() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, decision, note }: { id: string; decision: 'approved' | 'rejected'; note?: string }) =>
+      api.reviewCashAdvance(id, decision, note),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cash-advances'] }),
+  })
+}
+
+export function useMarkCashAdvanceDeducted() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, cutoffId }: { id: string; cutoffId: string }) =>
+      api.markCashAdvanceDeducted(id, cutoffId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cash-advances'] }),
+  })
+}

@@ -77,6 +77,10 @@ export default function Workers() {
       toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
       return;
     }
+    if (newWorker.password.length < 8) {
+      toast({ title: 'Password too short', description: 'Password must be at least 8 characters.', variant: 'destructive' });
+      return;
+    }
     try {
       await createWorker.mutateAsync({
         name: newWorker.name,
@@ -257,6 +261,9 @@ export default function Workers() {
               <div className="col-span-2">
                 <Label htmlFor="password">Temporary Password *</Label>
                 <Input id="password" type="password" placeholder="Min. 8 characters" value={newWorker.password} onChange={(e) => setNewWorker((p) => ({ ...p, password: e.target.value }))} className="mt-1" />
+                {newWorker.password.length > 0 && newWorker.password.length < 8 && (
+                  <p className="text-xs text-destructive mt-1">Password must be at least 8 characters</p>
+                )}
               </div>
             </div>
           </div>

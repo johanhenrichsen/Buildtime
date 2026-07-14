@@ -10,13 +10,17 @@ const prisma = new PrismaClient();
 const DEVICE_KEY = 'BUILDTIME-KIOSK-KEY-2024';
 
 const PERMISSIONS = [
-  'system_config',
-  'manage_workers_all',
+  'checkin_kiosk',
+  'view_own_dtr',
+  'approve_ot_leave_crew',
+  'approve_ot_leave_all',
+  'edit_attendance',
   'manage_workers_site',
-  'edit_dtr',
-  'review_flagged',
-  'view_audit_log',
-  'export_payroll',
+  'manage_workers_all',
+  'run_payroll',
+  'view_labor_cost_site',
+  'view_labor_cost_all',
+  'system_config',
 ];
 
 async function main() {

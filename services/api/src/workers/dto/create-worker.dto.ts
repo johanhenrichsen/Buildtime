@@ -9,6 +9,7 @@ import {
   MinLength,
   Min,
 } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 import { EmploymentType } from '@buildtime/shared-types';
 
 export class CreateWorkerDto {
@@ -24,6 +25,7 @@ export class CreateWorkerDto {
   @IsEnum(['regular', 'project-based', 'casual'] satisfies EmploymentType[])
   employmentType: EmploymentType;
 
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   dailyRate: number;
@@ -33,6 +35,7 @@ export class CreateWorkerDto {
 
   @IsOptional()
   @IsEmail()
+  @Transform(({ value }) => value === '' ? undefined : value)
   email?: string;
 
   @IsOptional()

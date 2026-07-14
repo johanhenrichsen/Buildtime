@@ -1,4 +1,5 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateWorkerDto } from './dto/create-worker.dto';
@@ -30,19 +31,27 @@ export class WorkersService {
       ? await bcrypt.hash(dto.password, 12)
       : undefined;
 
-    return this.prisma.worker.create({
-      data: {
-        employeeNo: dto.employeeNo,
-        name: dto.name,
-        roleId: dto.roleId,
-        employmentType: dto.employmentType,
-        dailyRate: dto.dailyRate,
-        hireDate: new Date(dto.hireDate),
-        email: dto.email,
-        passwordHash,
-      },
-      select: SAFE_SELECT,
-    });
+    try {
+      return await this.prisma.worker.create({
+        data: {
+          employeeNo: dto.employeeNo,
+          name: dto.name,
+          roleId: dto.roleId,
+          employmentType: dto.employmentType,
+          dailyRate: dto.dailyRate,
+          hireDate: new Date(dto.hireDate),
+          email: dto.email,
+          passwordHash,
+        },
+        select: SAFE_SELECT,
+      });
+    } catch (e) {
+      if (e instanceof PrismaClientKnownRequestError && e.code === 'P2002') {
+        const field = (e.meta?.target as string[])?.join(', ') ?? 'field';
+        throw new ConflictException(`A worker with this ${field} already exists.`);
+      }
+      throw e;
+    }
   }
 
   findAll(params: { status?: string; roleId?: string; page?: number; limit?: number }) {

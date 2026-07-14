@@ -7,6 +7,7 @@ export type KioskPhase =
   | 'liveness'   // face detected, collecting frames
   | 'matching'   // liveness passed, running matcher
   | 'result'     // showing outcome
+  | 'pin'        // manual PIN fallback entry
   | 'error';     // unrecoverable setup error
 
 export type ResultKind = 'success' | 'flagged' | 'no_match' | 'rate_limited';
@@ -22,6 +23,7 @@ export interface CheckinResult {
 export interface RosterEntry {
   workerId: string;
   name: string;
+  employeeNo: string;
   embedding: number[];       // 128-dim float array
 }
 

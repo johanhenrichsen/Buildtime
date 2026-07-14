@@ -46,7 +46,7 @@ export default function Workers() {
     employeeNo: '',
     email: '',
     dailyRate: '',
-    employmentType: 'daily',
+    employmentType: 'regular',
     status: 'active' as 'active' | 'inactive',
     password: '',
   });
@@ -77,7 +77,7 @@ export default function Workers() {
         password: newWorker.password,
       });
       setShowAddDialog(false);
-      setNewWorker({ name: '', employeeNo: '', email: '', dailyRate: '', employmentType: 'daily', status: 'active', password: '' });
+      setNewWorker({ name: '', employeeNo: '', email: '', dailyRate: '', employmentType: 'regular', status: 'active', password: '' });
       toast({ title: 'Worker added', description: `${newWorker.name} has been added.` });
     } catch {
       toast({ title: 'Error', description: 'Failed to add worker.', variant: 'destructive' });
@@ -214,8 +214,9 @@ export default function Workers() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="regular">Regular</SelectItem>
+                  <SelectItem value="project-based">Project-Based</SelectItem>
+                  <SelectItem value="casual">Casual</SelectItem>
                 </SelectContent>
               </Select>
             </div>

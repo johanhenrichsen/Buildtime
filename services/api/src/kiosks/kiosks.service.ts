@@ -71,10 +71,12 @@ export class KiosksService {
     const rows = await this.prisma.$queryRaw<{
       workerId: string;
       name: string;
+      employeeNo: string;
       embeddingVector: string;
     }[]>`
-      SELECT w.id          AS "workerId",
+      SELECT w.id             AS "workerId",
              w.name,
+             w.employee_no    AS "employeeNo",
              fe.embedding_vector::text AS "embeddingVector"
       FROM   workers w
       JOIN   face_embeddings fe ON fe.id = w.face_embedding_ref
@@ -86,6 +88,7 @@ export class KiosksService {
     return rows.map((r) => ({
       workerId: r.workerId,
       name: r.name,
+      employeeNo: r.employeeNo,
       embedding: JSON.parse(r.embeddingVector) as number[],
     }));
   }

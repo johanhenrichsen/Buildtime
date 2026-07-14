@@ -3,6 +3,12 @@ import { fetchRoster } from './api';
 import { ROSTER_REFRESH_MS } from '../constants';
 import type { RosterEntry } from '../types';
 
+let _lastRefreshedAt: number | null = null;
+
+export function getLastRefreshedAt(): number | null {
+  return _lastRefreshedAt;
+}
+
 export async function getRoster(): Promise<RosterEntry[]> {
   const db = await getDb();
   const all = await db.getAll('roster');
@@ -19,6 +25,7 @@ export async function refreshRoster(): Promise<RosterEntry[]> {
     await tx.store.put({ ...entry, updatedAt: now });
   }
   await tx.done;
+  _lastRefreshedAt = now;
   return entries;
 }
 

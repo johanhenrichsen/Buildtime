@@ -67,18 +67,18 @@ export function Layout({ children }: LayoutProps) {
           {NAV.map((item) => {
             const isActive = location === item.path || location.startsWith(item.path + '/');
             return (
-              <Link key={item.path} href={item.path}>
-                <a
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors mb-0.5 ${
-                    isActive
-                      ? 'bg-sidebar-accent text-sidebar-foreground'
-                      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
-                  }`}
-                >
-                  {item.icon}
-                  {item.label}
-                  {isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
-                </a>
+              <Link
+                key={item.path}
+                href={item.path}
+                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors mb-0.5 ${
+                  isActive
+                    ? 'bg-sidebar-accent text-sidebar-foreground'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+                }`}
+              >
+                {item.icon}
+                {item.label}
+                {isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
               </Link>
             );
           })}

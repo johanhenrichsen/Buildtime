@@ -287,6 +287,17 @@ export async function markCashAdvanceDeducted(id: string, cutoffId: string): Pro
   return json(res);
 }
 
+// ── Manual attendance ─────────────────────────────────────────────────────────
+
+export async function manualAttendance(data: {
+  workerId: string;
+  eventType: 'in' | 'out';
+  siteId: string;
+}): Promise<{ id: string; eventType: string; serverTs: string }> {
+  const res = await apiFetch('/api/v1/attendance/manual', { method: 'POST', body: JSON.stringify(data) });
+  return json(res);
+}
+
 // ── Audit log ─────────────────────────────────────────────────────────────────
 
 export interface AuditEntry {

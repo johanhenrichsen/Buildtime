@@ -238,6 +238,12 @@ CREATE TABLE IF NOT EXISTS cash_advances (
 CREATE INDEX IF NOT EXISTS idx_cash_advances_worker  ON cash_advances(worker_id, requested_at DESC);
 CREATE INDEX IF NOT EXISTS idx_cash_advances_status  ON cash_advances(status) WHERE status = 'pending';
 
+-- 05: make kiosk_id nullable to allow manual admin attendance entries
+DO $$ BEGIN
+    ALTER TABLE attendance_events ALTER COLUMN kiosk_id DROP NOT NULL;
+EXCEPTION WHEN others THEN NULL;
+END $$;
+
 -- ── Seed: roles & permissions ─────────────────────────────────────────────────
 INSERT INTO permissions (name) VALUES
     ('checkin_kiosk'),

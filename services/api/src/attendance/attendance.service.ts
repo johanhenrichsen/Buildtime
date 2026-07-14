@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { KioskJwtPayload, WorkerJwtPayload } from '@buildtime/shared-types';
 import { SyncEventsDto } from './dto/sync-events.dto';
 import { ReviewEventDto } from './dto/review-event.dto';
+import { ManualAttendanceDto } from './dto/manual-attendance.dto';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -43,6 +44,37 @@ export class AttendanceService {
     }
 
     return { results };
+  }
+
+  async manualRecord(dto: ManualAttendanceDto, actorId: string) {
+    const now = new Date();
+    const event = await this.prisma.attendanceEvent.create({
+      data: {
+        workerId:        dto.workerId,
+        siteId:          dto.siteId,
+        kioskId:         null,
+        eventType:       dto.eventType,
+        clientTs:        now,
+        confidenceScore: 1,
+        matchMethod:     'manual_exception',
+        flaggedForReview: false,
+        clientEventId:   null,
+      },
+      select: { id: true, eventType: true, serverTs: true },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId,
+        action:   `manual_attendance:${dto.eventType}`,
+        entity:   'attendance_event',
+        entityId: event.id,
+        before:   {},
+        after:    { workerId: dto.workerId, siteId: dto.siteId, eventType: dto.eventType } as Prisma.InputJsonValue,
+      },
+    });
+
+    return event;
   }
 
   async getFlagged(params: { page?: number; limit?: number }) {

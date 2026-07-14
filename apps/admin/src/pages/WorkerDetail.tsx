@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useParams } from 'wouter';
-import { ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, LogIn, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { useToast } from '@/hooks/use-toast';
-import { useWorkers, useUpdateWorker, useEnrollmentStatus, useRevokeEnrollment } from '@/lib/queries';
+import { useWorkers, useUpdateWorker, useEnrollmentStatus, useRevokeEnrollment, useSites, useManualAttendance } from '@/lib/queries';
 import { EnrollmentCamera } from '@/components/EnrollmentCamera';
 
 function getInitials(name: string) {
@@ -32,6 +32,10 @@ export default function WorkerDetail() {
 
   const worker = data?.data.find((w) => w.id === id);
 
+  const { data: sitesData } = useSites();
+  const manualAttendance = useManualAttendance();
+  const sites = sitesData?.data ?? [];
+
   const [form, setForm] = useState<{
     name?: string;
     dailyRate?: string;
@@ -39,11 +43,29 @@ export default function WorkerDetail() {
     employmentType?: string;
   }>({});
   const [enrollResult, setEnrollResult] = useState<{ msg: string; success: boolean } | null>(null);
+  const [selectedSite, setSelectedSite] = useState<string>('');
 
   function field(key: 'name' | 'dailyRate' | 'status' | 'employmentType') {
     if (key in form && form[key] !== undefined) return form[key] as string;
     if (!worker) return '';
     return String(worker[key] ?? '');
+  }
+
+  async function handleManualClock(eventType: 'in' | 'out') {
+    if (!id) return;
+    if (!selectedSite) {
+      toast({ title: 'Select a site', description: 'Please choose a site before recording attendance.', variant: 'destructive' });
+      return;
+    }
+    try {
+      const result = await manualAttendance.mutateAsync({ workerId: id, eventType, siteId: selectedSite });
+      const label = eventType === 'in' ? 'Clock In' : 'Clock Out';
+      const time = new Date(result.serverTs).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+      toast({ title: `${label} recorded`, description: `${worker?.name} — ${time}` });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to record attendance.';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    }
   }
 
   async function handleSave() {
@@ -201,6 +223,47 @@ export default function WorkerDetail() {
           <Button onClick={handleSave} disabled={updateWorker.isPending || Object.keys(form).length === 0}>
             {updateWorker.isPending ? 'Saving…' : 'Save Changes'}
           </Button>
+        </div>
+      </div>
+
+      {/* Manual attendance */}
+      <div className="bg-card border border-border rounded-lg p-5">
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-foreground">Manual Attendance</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Record a clock-in or clock-out event for this worker</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+          <div className="w-full sm:w-64">
+            <Label className="text-xs mb-1 block">Site</Label>
+            <Select value={selectedSite} onValueChange={setSelectedSite}>
+              <SelectTrigger>
+                <SelectValue placeholder="— select site —" />
+              </SelectTrigger>
+              <SelectContent>
+                {sites.filter((s) => s.status === 'active').map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+              disabled={manualAttendance.isPending || !selectedSite}
+              onClick={() => handleManualClock('in')}
+            >
+              <LogIn className="w-4 h-4" />
+              Clock In
+            </Button>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5"
+              disabled={manualAttendance.isPending || !selectedSite}
+              onClick={() => handleManualClock('out')}
+            >
+              <LogOut className="w-4 h-4" />
+              Clock Out
+            </Button>
+          </div>
         </div>
       </div>
 

@@ -19,6 +19,7 @@ import { KioskJwtPayload, WorkerJwtPayload } from '@buildtime/shared-types';
 import { AttendanceService } from './attendance.service';
 import { SyncEventsDto } from './dto/sync-events.dto';
 import { ReviewEventDto } from './dto/review-event.dto';
+import { ManualAttendanceDto } from './dto/manual-attendance.dto';
 
 @Controller('attendance')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -32,6 +33,17 @@ export class AttendanceController {
   @RequirePermissions('checkin_kiosk')
   sync(@Body() dto: SyncEventsDto, @CurrentUser() user: KioskJwtPayload) {
     return this.attendanceService.syncEvents(dto, user);
+  }
+
+  // Admin-only manual clock-in/out. No kiosk involved; requires edit_attendance.
+  @Post('manual')
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermissions('edit_attendance')
+  manualRecord(
+    @Body() dto: ManualAttendanceDto,
+    @CurrentUser() user: WorkerJwtPayload,
+  ) {
+    return this.attendanceService.manualRecord(dto, user.sub);
   }
 
   // Lists events where flaggedForReview = true, joined with worker name.

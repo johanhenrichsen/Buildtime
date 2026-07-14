@@ -131,7 +131,7 @@ model AttendanceEvent {
   id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   workerId         String   @map("worker_id") @db.Uuid
   siteId           String   @map("site_id") @db.Uuid
-  kioskId          String   @map("kiosk_id") @db.Uuid
+  kioskId          String?  @map("kiosk_id") @db.Uuid
   eventType        String   @map("event_type")
   clientTs         DateTime @map("client_ts") @db.Timestamptz(6)
   serverTs         DateTime @default(now()) @map("server_ts") @db.Timestamptz(6)
@@ -142,9 +142,9 @@ model AttendanceEvent {
   syncedAt         DateTime @default(now()) @map("synced_at") @db.Timestamptz(6)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  worker Worker @relation(fields: [workerId], references: [id])
-  site   Site   @relation(fields: [siteId], references: [id])
-  kiosk  Kiosk  @relation(fields: [kioskId], references: [id])
+  worker Worker  @relation(fields: [workerId], references: [id])
+  site   Site    @relation(fields: [siteId], references: [id])
+  kiosk  Kiosk?  @relation(fields: [kioskId], references: [id])
 
   @@map("attendance_events")
 }

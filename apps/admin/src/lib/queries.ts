@@ -151,3 +151,9 @@ export function useMarkCashAdvanceDeducted() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cash-advances'] }),
   })
 }
+
+export function useManualAttendance() {
+  return useMutation({
+    mutationFn: (data: Parameters<typeof api.manualAttendance>[0]) => api.manualAttendance(data),
+  })
+}

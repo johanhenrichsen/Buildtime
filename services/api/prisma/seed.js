@@ -27,6 +27,14 @@ async function main() {
   }
   console.log('Permissions created.');
 
+  // Default role for regular construction workers (no admin permissions needed)
+  await prisma.role.upsert({
+    where: { name: 'worker' },
+    create: { name: 'worker' },
+    update: {},
+  });
+  console.log('Role "worker" created (no permissions — for field workers).');
+
   const role = await prisma.role.upsert({
     where: { name: 'super_admin' },
     create: { name: 'super_admin' },
@@ -52,7 +60,7 @@ async function main() {
       email: 'admin@buildtime.ph',
       passwordHash,
       roleId: role.id,
-      employmentType: 'monthly',
+      employmentType: 'regular',
       dailyRate: '0',
       hireDate: new Date('2024-01-01'),
       status: 'active',

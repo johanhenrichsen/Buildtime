@@ -2,8 +2,8 @@ import { ArrayMaxSize, ArrayMinSize, IsArray, IsNumber, Max, Min } from 'class-v
 
 export class EnrollWorkerDto {
   @IsArray()
-  @ArrayMinSize(512)
-  @ArrayMaxSize(512)
+  @ArrayMinSize(128)
+  @ArrayMaxSize(128)
   @IsNumber({}, { each: true })
   embeddingVector: number[];
 

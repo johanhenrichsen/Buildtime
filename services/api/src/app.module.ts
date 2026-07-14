@@ -10,6 +10,7 @@ import { CutoffsModule } from './cutoffs/cutoffs.module';
 import { RulesModule } from './rules/rules.module';
 import { DtrModule } from './dtr/dtr.module';
 import { AuditModule } from './audit/audit.module';
+import { RolesModule } from './roles/roles.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 
 @Module({
@@ -26,6 +27,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
     RulesModule,
     DtrModule,
     AuditModule,
+    RolesModule,
   ],
 })
 export class AppModule {}

@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { useToast } from '@/hooks/use-toast';
-import { useWorkers, useCreateWorker } from '@/lib/queries';
+import { useWorkers, useCreateWorker, useRoles } from '@/lib/queries';
 
 function getInitials(name: string) {
   return name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -32,24 +32,28 @@ function formatPeso(val: string | number) {
   return `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+const BLANK_WORKER = {
+  name: '',
+  employeeNo: '',
+  email: '',
+  dailyRate: '',
+  hireDate: new Date().toISOString().slice(0, 10),
+  roleId: '',
+  employmentType: 'regular',
+  password: '',
+};
+
 export default function Workers() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { data, isLoading } = useWorkers();
+  const { data: roles } = useRoles();
   const createWorker = useCreateWorker();
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [newWorker, setNewWorker] = useState({
-    name: '',
-    employeeNo: '',
-    email: '',
-    dailyRate: '',
-    employmentType: 'regular',
-    status: 'active' as 'active' | 'inactive',
-    password: '',
-  });
+  const [newWorker, setNewWorker] = useState(BLANK_WORKER);
 
   const workers = data?.data ?? [];
 
@@ -61,8 +65,15 @@ export default function Workers() {
     return matchesSearch && matchesStatus;
   });
 
+  function openAdd() {
+    // Pre-select the 'worker' role if available
+    const workerRole = roles?.find((r) => r.name === 'worker');
+    setNewWorker({ ...BLANK_WORKER, roleId: workerRole?.id ?? '' });
+    setShowAddDialog(true);
+  }
+
   async function handleAddWorker() {
-    if (!newWorker.name || !newWorker.employeeNo || !newWorker.dailyRate || !newWorker.password) {
+    if (!newWorker.name || !newWorker.employeeNo || !newWorker.dailyRate || !newWorker.password || !newWorker.roleId) {
       toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
       return;
     }
@@ -71,16 +82,18 @@ export default function Workers() {
         name: newWorker.name,
         employeeNo: newWorker.employeeNo,
         email: newWorker.email || undefined,
-        dailyRate: newWorker.dailyRate,
+        dailyRate: parseFloat(newWorker.dailyRate) as unknown as string,
+        hireDate: newWorker.hireDate,
+        roleId: newWorker.roleId,
         employmentType: newWorker.employmentType,
-        status: newWorker.status,
         password: newWorker.password,
-      });
+      } as Parameters<typeof createWorker.mutateAsync>[0]);
       setShowAddDialog(false);
-      setNewWorker({ name: '', employeeNo: '', email: '', dailyRate: '', employmentType: 'regular', status: 'active', password: '' });
-      toast({ title: 'Worker added', description: `${newWorker.name} has been added.` });
-    } catch {
-      toast({ title: 'Error', description: 'Failed to add worker.', variant: 'destructive' });
+      setNewWorker(BLANK_WORKER);
+      toast({ title: 'Worker added', description: `${newWorker.name} has been added successfully.` });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to add worker.';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
     }
   }
 
@@ -93,7 +106,7 @@ export default function Workers() {
             {workers.filter((w) => w.status === 'active').length} active workers
           </p>
         </div>
-        <Button onClick={() => setShowAddDialog(true)}>
+        <Button onClick={openAdd}>
           <Plus className="w-4 h-4 mr-2" />
           Add Worker
         </Button>
@@ -164,7 +177,7 @@ export default function Workers() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{w.employeeNo}</td>
                     <td className="px-4 py-3">{formatPeso(w.dailyRate)}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs capitalize">{w.employmentType}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs capitalize">{w.employmentType.replace('-', '‑')}</td>
                     <td className="px-4 py-3">
                       <Badge
                         className={w.status === 'active'
@@ -186,43 +199,62 @@ export default function Workers() {
       )}
 
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-screen overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Worker</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div>
-              <Label htmlFor="name">Full Name *</Label>
-              <Input id="name" placeholder="e.g. Juan dela Cruz" value={newWorker.name} onChange={(e) => setNewWorker((p) => ({ ...p, name: e.target.value }))} className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="empNo">Employee No. *</Label>
-              <Input id="empNo" placeholder="e.g. EMP-009" value={newWorker.employeeNo} onChange={(e) => setNewWorker((p) => ({ ...p, employeeNo: e.target.value }))} className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="juan@example.com" value={newWorker.email} onChange={(e) => setNewWorker((p) => ({ ...p, email: e.target.value }))} className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="rate">Daily Rate (PHP) *</Label>
-              <Input id="rate" type="number" placeholder="850" value={newWorker.dailyRate} onChange={(e) => setNewWorker((p) => ({ ...p, dailyRate: e.target.value }))} className="mt-1" />
-            </div>
-            <div>
-              <Label>Employment Type</Label>
-              <Select value={newWorker.employmentType} onValueChange={(v) => setNewWorker((p) => ({ ...p, employmentType: v }))}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="regular">Regular</SelectItem>
-                  <SelectItem value="project-based">Project-Based</SelectItem>
-                  <SelectItem value="casual">Casual</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="password">Password *</Label>
-              <Input id="password" type="password" placeholder="Temporary password" value={newWorker.password} onChange={(e) => setNewWorker((p) => ({ ...p, password: e.target.value }))} className="mt-1" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <Label htmlFor="name">Full Name *</Label>
+                <Input id="name" placeholder="e.g. Juan dela Cruz" value={newWorker.name} onChange={(e) => setNewWorker((p) => ({ ...p, name: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label htmlFor="empNo">Employee No. *</Label>
+                <Input id="empNo" placeholder="e.g. EMP-009" value={newWorker.employeeNo} onChange={(e) => setNewWorker((p) => ({ ...p, employeeNo: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label htmlFor="hireDate">Hire Date *</Label>
+                <Input id="hireDate" type="date" value={newWorker.hireDate} onChange={(e) => setNewWorker((p) => ({ ...p, hireDate: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label htmlFor="rate">Daily Rate (PHP) *</Label>
+                <Input id="rate" type="number" min="0" placeholder="850" value={newWorker.dailyRate} onChange={(e) => setNewWorker((p) => ({ ...p, dailyRate: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label>Employment Type</Label>
+                <Select value={newWorker.employmentType} onValueChange={(v) => setNewWorker((p) => ({ ...p, employmentType: v }))}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="regular">Regular</SelectItem>
+                    <SelectItem value="project-based">Project-Based</SelectItem>
+                    <SelectItem value="casual">Casual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2">
+                <Label>Role *</Label>
+                <Select value={newWorker.roleId} onValueChange={(v) => setNewWorker((p) => ({ ...p, roleId: v }))}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="— select role —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(roles ?? []).map((r) => (
+                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="email">Email (optional)</Label>
+                <Input id="email" type="email" placeholder="juan@example.com" value={newWorker.email} onChange={(e) => setNewWorker((p) => ({ ...p, email: e.target.value }))} className="mt-1" />
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="password">Temporary Password *</Label>
+                <Input id="password" type="password" placeholder="Min. 8 characters" value={newWorker.password} onChange={(e) => setNewWorker((p) => ({ ...p, password: e.target.value }))} className="mt-1" />
+              </div>
             </div>
           </div>
           <DialogFooter>

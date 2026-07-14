@@ -1,6 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from './api'
 
+export function useRoles() {
+  return useQuery({
+    queryKey: ['roles'],
+    queryFn: () => api.getRoles(),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useEnrollmentStatus(workerId: string) {
+  return useQuery({
+    queryKey: ['enrollment', workerId],
+    queryFn: () => api.getEnrollmentStatus(workerId),
+    enabled: !!workerId,
+  })
+}
+
+export function useRevokeEnrollment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (workerId: string) => api.revokeEnrollment(workerId),
+    onSuccess: (_data, workerId) => qc.invalidateQueries({ queryKey: ['enrollment', workerId] }),
+  })
+}
+
 export function useWorkers(params?: { status?: string; page?: number; limit?: number }) {
   return useQuery({
     queryKey: ['workers', params],

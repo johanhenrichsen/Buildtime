@@ -93,14 +93,47 @@ export async function updateWorker(id: string, data: Partial<Worker>): Promise<W
   return json(res);
 }
 
+// ── Roles ─────────────────────────────────────────────────────────────────────
+
+export interface Role {
+  id: string;
+  name: string;
+}
+
+export async function getRoles(): Promise<Role[]> {
+  const res = await apiFetch('/api/v1/roles');
+  return json(res);
+}
+
 // ── Enrollment ───────────────────────────────────────────────────────────────
+
+export interface EnrollmentStatus {
+  workerId: string;
+  enrolled: boolean;
+  embedding: {
+    id: string;
+    qualityScore: number;
+    enrolledAt: string;
+    active: boolean;
+    enrolledByWorker: { id: string; name: string } | null;
+  } | null;
+}
+
+export async function getEnrollmentStatus(workerId: string): Promise<EnrollmentStatus> {
+  const res = await apiFetch(`/api/v1/enrollment/${workerId}`);
+  return json(res);
+}
 
 export async function enrollWorker(workerId: string, descriptor: number[], qualityScore: number): Promise<unknown> {
   const res = await apiFetch(`/api/v1/enrollment/${workerId}`, {
     method: 'POST',
-    body: JSON.stringify({ descriptor, qualityScore }),
+    body: JSON.stringify({ embeddingVector: descriptor, qualityScore }),
   });
   return json(res);
+}
+
+export async function revokeEnrollment(workerId: string): Promise<void> {
+  await apiFetch(`/api/v1/enrollment/${workerId}`, { method: 'DELETE' });
 }
 
 // ── Cutoffs ──────────────────────────────────────────────────────────────────

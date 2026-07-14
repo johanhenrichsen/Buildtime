@@ -1,4 +1,5 @@
 import { IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 import { EmploymentType, WorkerStatus } from '@buildtime/shared-types';
 
 export class UpdateWorkerDto {
@@ -12,7 +13,7 @@ export class UpdateWorkerDto {
   @IsEnum(['regular', 'project-based', 'casual'] satisfies EmploymentType[])
   employmentType?: EmploymentType;
 
-  @IsOptional() @IsNumber() @Min(0)
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0)
   dailyRate?: number;
 
   @IsOptional()

@@ -52,8 +52,9 @@ export default function WorkerDetail() {
       await updateWorker.mutateAsync({ id, data: form });
       setForm({});
       toast({ title: 'Changes saved', description: 'Worker record updated.' });
-    } catch {
-      toast({ title: 'Error', description: 'Failed to save changes.', variant: 'destructive' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to save changes.';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
     }
   }
 

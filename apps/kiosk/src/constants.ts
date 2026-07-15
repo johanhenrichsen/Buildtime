@@ -1,7 +1,9 @@
 // Match thresholds — face-api.js FaceRecognitionNet uses L2 Euclidean distance.
 // Lower distance = better match (opposite of cosine similarity).
-export const MATCH_DIST_HIGH   = 0.50;  // below this → high-confidence auto-approve
-export const MATCH_DIST_LOW    = 0.65;  // below this → low-confidence, flagged_for_review
+// Real-world job-site conditions (outdoor light, helmets, budget cameras) push distances
+// higher than lab benchmarks. Raised from 0.50/0.65 to accommodate this.
+export const MATCH_DIST_HIGH   = 0.60;  // below this → high-confidence auto-approve
+export const MATCH_DIST_LOW    = 0.75;  // below this → low-confidence, flagged_for_review
 // Above MATCH_DIST_LOW → no match
 
 export const RATE_LIMIT_MS     = 3 * 60 * 1000;  // 3 min between events per worker per direction

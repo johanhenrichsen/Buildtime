@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadModels } from './lib/faceApi';
-import { refreshRoster, getRoster, getLastRefreshedAt } from './lib/roster';
+import { initRoster, refreshRoster, getRoster, getLastRefreshedAt } from './lib/roster';
 import { findBestMatch } from './lib/matcher';
 import { recordEvent, getExpectedEventType, getPendingCount } from './lib/queue';
 import { startSyncLoop, runSync } from './lib/sync';
@@ -18,9 +18,22 @@ import type { CheckinResult, EventType, KioskPhase, MatchedWorker, RosterEntry }
 
 const AUTO_RETRY_DELAY_MS = 30_000;
 
+function friendlyInitError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (msg.includes('timed out') || msg.includes('timeout'))
+    return 'Network is too slow — check your connection. Retrying…';
+  if (msg.includes('authentication') || msg.includes('401') || msg.includes('403'))
+    return 'Device not recognized — contact your supervisor.';
+  if (msg.includes('roster') || msg.includes('worker list'))
+    return 'Could not load worker list. Retrying…';
+  if (msg.includes('No worker roster'))
+    return 'No worker data yet — connect to the network and retry.';
+  return 'Setup failed — check your connection and tap Retry.';
+}
+
 export default function App() {
   const [phase, setPhase]                     = useState<KioskPhase>('init');
-  const [loadMsg, setLoadMsg]                 = useState('Loading face recognition models…');
+  const [loadMsg, setLoadMsg]                 = useState('Starting up…');
   const [result, setResult]                   = useState<CheckinResult | null>(null);
   const [selectedAction, setSelectedAction]   = useState<EventType | null>(null);
   const [matchedWorker, setMatchedWorker]     = useState<MatchedWorker | null>(null);
@@ -36,23 +49,23 @@ export default function App() {
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const matchingRef = useRef(false);
 
-  // Camera only active after an action has been selected
+  // Camera always warms up immediately — detection only starts once action is selected
+  // PRODUCT DECISION: set cameraActive=true during 'idle' to show live preview on action screen.
+  // Pro: workers see themselves, can position better. Con: shows camera feed while choosing.
   const cameraActive = phase === 'scanning' || phase === 'liveness' || phase === 'matching';
   const { ready: cameraReady, error: cameraError } = useCamera(videoRef);
   const detection = useFaceDetection(videoRef, cameraReady, cameraActive);
   const liveness  = useLiveness(detection);
 
-  // ── Initialise models + roster ───────────────────────────────────────────
+  // ── Initialise: models + roster load in parallel ─────────────────────────
   const init = useCallback(async () => {
     setInitError(null);
     setRetryCountdown(0);
     setPhase('init');
+    setLoadMsg('Starting up…');
     try {
-      setLoadMsg('Loading face recognition models…');
-      await loadModels();
-      setLoadMsg('Fetching worker roster…');
-      await refreshRoster();
-      const roster = await getRoster();
+      // Parallel load: face models (from cache after first run) + roster (from network or IDB cache)
+      const [roster] = await Promise.all([initRoster(), loadModels()]);
       setRosterSize(roster.length);
       setPinRoster(roster);
       setLastRefreshedAt(getLastRefreshedAt());
@@ -60,7 +73,7 @@ export default function App() {
       setPhase('idle');
       startSyncLoop((n) => setPending(n));
     } catch (e) {
-      setInitError(String(e));
+      setInitError(friendlyInitError(e));
       setPhase('error');
       let remaining = AUTO_RETRY_DELAY_MS / 1000;
       setRetryCountdown(remaining);
@@ -87,7 +100,7 @@ export default function App() {
     };
   }, []);
 
-  // ── Roster refresh tick ──────────────────────────────────────────────────
+  // ── Background roster refresh ────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'idle') return;
     const id = setInterval(async () => {
@@ -96,7 +109,7 @@ export default function App() {
         setRosterSize(roster.length);
         setPinRoster(roster);
         setLastRefreshedAt(getLastRefreshedAt());
-      } catch { /* ignore refresh errors — stale cache still works */ }
+      } catch { /* non-fatal — stale cache still works */ }
     }, 30 * 60 * 1000);
     return () => clearInterval(id);
   }, [phase]);
@@ -115,7 +128,7 @@ export default function App() {
     setPhase('idle');
   }, [liveness]);
 
-  // ── Record the event and show result ────────────────────────────────────
+  // ── Record the event and build result ────────────────────────────────────
   const doRecord = useCallback(async (
     worker: { workerId: string; name: string; confidence: number; matchMethod: MatchedWorker['matchMethod']; flagged: boolean },
     eventType: EventType,
@@ -169,7 +182,7 @@ export default function App() {
 
       if (!match || match.distance > MATCH_DIST_LOW) {
         playFail();
-        showResult({ kind: 'no_match', message: 'Face not recognized — try Employee ID' });
+        showResult({ kind: 'no_match', message: 'Face not recognized — use Employee ID below or ask your supervisor' });
         return;
       }
 
@@ -181,8 +194,9 @@ export default function App() {
       showResult(checkinResult);
     } catch {
       matchingRef.current = false;
-      setPhase('scanning');
       liveness.reset();
+      // Show a result card so the user knows something went wrong — don't silently loop back
+      showResult({ kind: 'no_match', message: 'Could not record — check your connection and try again' });
     }
   }, [selectedAction, doRecord, showResult, liveness]);
 
@@ -206,15 +220,21 @@ export default function App() {
       setMatchedWorker({ workerId: entry.workerId, name: entry.name, confidence: 1, matchMethod: 'manual_exception', flagged: false, defaultEventType });
       setPhase('choose');
     } catch {
-      setPhase('idle');
+      // IDB read failed — still safe to proceed, just default to 'in'
+      setMatchedWorker({ workerId: entry.workerId, name: entry.name, confidence: 1, matchMethod: 'manual_exception', flagged: false, defaultEventType: 'in' });
+      setPhase('choose');
     }
   }, []);
 
   // ── PIN choose handler ────────────────────────────────────────────────────
   const handleChoose = useCallback(async (eventType: EventType) => {
     if (!matchedWorker) return;
-    const checkinResult = await doRecord(matchedWorker, eventType);
-    showResult(checkinResult);
+    try {
+      const checkinResult = await doRecord(matchedWorker, eventType);
+      showResult(checkinResult);
+    } catch {
+      showResult({ kind: 'no_match', message: 'Could not record — check your connection and try again' });
+    }
   }, [matchedWorker, doRecord, showResult]);
 
   const handleCancelChoose = useCallback(() => {
@@ -243,18 +263,19 @@ export default function App() {
 
         {phase === 'error' && (
           <div className="flex flex-col items-center justify-center h-full gap-4 px-8 text-center">
-            <p className="text-red-400 text-xl font-bold">Setup failed</p>
-            <p className="text-slate-400 text-sm max-w-sm">{initError}</p>
+            <p className="text-5xl mb-2">⚠️</p>
+            <p className="text-red-400 text-xl font-bold">Kiosk offline</p>
+            <p className="text-slate-300 text-base max-w-sm">{initError}</p>
             {retryCountdown > 0 && (
-              <p className="text-slate-500 text-xs">Auto-retrying in {retryCountdown}s…</p>
+              <p className="text-slate-500 text-sm">Auto-retrying in {retryCountdown}s…</p>
             )}
-            <button onClick={init} className="mt-2 px-6 py-2 bg-blue-600 rounded-lg text-sm">
+            <button onClick={init} className="mt-2 px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold active:scale-95 transition-transform">
               Retry Now
             </button>
           </div>
         )}
 
-        {/* ── Idle: action selection screen ───────────────────────────────── */}
+        {/* ── Idle: action selection ─────────────────────────────────────── */}
         {phase === 'idle' && (
           <div className="flex flex-col items-center justify-center h-full gap-5 px-8">
             <p className="text-slate-400 text-sm tracking-widest uppercase mb-2">What would you like to do?</p>
@@ -283,19 +304,22 @@ export default function App() {
           </div>
         )}
 
-        {/* ── Camera: scanning, liveness, matching ────────────────────────── */}
+        {/* Camera error overlay — only show when camera phases are active */}
         {cameraError && cameraActive && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
             <p className="text-4xl">📷</p>
-            <p className="text-red-400 text-lg font-medium">Camera unavailable</p>
-            <p className="text-slate-400 text-sm max-w-xs">{cameraError}</p>
-            <button onClick={() => window.location.reload()} className="mt-2 px-6 py-2 bg-blue-600 rounded-lg text-sm">
-              Refresh
+            <p className="text-red-400 text-lg font-bold">Camera unavailable</p>
+            <p className="text-slate-300 text-sm max-w-xs">{cameraError}</p>
+            <button onClick={handleCancelScan} className="mt-2 px-6 py-2 bg-slate-700 rounded-lg text-sm">
+              ← Go Back
+            </button>
+            <button onClick={() => window.location.reload()} className="px-6 py-2 bg-blue-600 rounded-lg text-sm">
+              Reload Page
             </button>
           </div>
         )}
 
-        {/* Always mounted while camera phases are possible */}
+        {/* Always mounted — camera stream is warm before user selects action */}
         <div className={`absolute inset-0 ${!cameraActive || cameraError ? 'hidden' : ''}`}>
           <CameraView
             videoRef={videoRef}

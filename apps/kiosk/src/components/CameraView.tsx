@@ -27,7 +27,6 @@ export function CameraView({
   onCancel,
   onUseEmployeeId,
 }: Props) {
-  // Draw face bounding box overlay
   useEffect(() => {
     const canvas = canvasRef.current;
     const video  = videoRef.current;
@@ -40,7 +39,25 @@ export function CameraView({
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (!detection.box) return;
+    if (!detection.box) {
+      // Draw face position guide when no face detected during scanning
+      if (phase === 'scanning') {
+        const cx = canvas.width / 2;
+        const cy = canvas.height * 0.46;
+        const rx = canvas.width * 0.20;
+        const ry = canvas.height * 0.33;
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 8]);
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      return;
+    }
+
     const { x, y, width, height } = detection.box;
 
     ctx.lineWidth = 3;
@@ -62,9 +79,14 @@ export function CameraView({
   const actionLabel = selectedAction === 'in' ? 'CLOCK IN' : 'CLOCK OUT';
   const actionColor = selectedAction === 'in' ? 'bg-emerald-600' : 'bg-orange-500';
 
+  const progress = Math.min(livenessFrameCount / LIVENESS_FRAMES, 1);
   const prompt =
-    phase === 'scanning'  ? 'Position your face in the frame' :
-    phase === 'liveness'  ? (livenessStatus === 'failed' ? 'Please move slightly…' : 'Hold still…') :
+    phase === 'scanning'  ? 'Center your face in the oval' :
+    phase === 'liveness'  ? (
+      livenessStatus === 'failed'
+        ? 'Move your head slightly and hold…'
+        : `Hold still… ${Math.round(progress * 100)}%`
+    ) :
     phase === 'matching'  ? 'Identifying…' : '';
 
   return (

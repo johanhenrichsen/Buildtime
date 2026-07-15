@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RosterEntry } from '../types';
 
 interface Props {
@@ -8,18 +8,29 @@ interface Props {
 }
 
 export function PinEntry({ roster, onSuccess, onCancel }: Props) {
-  const [pin, setPin] = useState('');
+  const [pin, setPin]     = useState('');
   const [error, setError] = useState('');
+  const inputRef          = useRef<HTMLInputElement>(null);
+
+  // Auto-focus hidden input on mount so hardware keyboard works immediately
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  function handleKeyInput(e: React.ChangeEvent<HTMLInputElement>) {
+    setPin(e.target.value.toUpperCase());
+    setError('');
+  }
 
   function press(digit: string) {
-    if (pin.length >= 10) return;
+    if (pin.length >= 12) return;
     setPin((p) => p + digit);
     setError('');
+    inputRef.current?.focus();
   }
 
   function del() {
     setPin((p) => p.slice(0, -1));
     setError('');
+    inputRef.current?.focus();
   }
 
   function submit() {
@@ -30,7 +41,12 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
     } else {
       setError('No worker found with that ID. Check your employee number and try again.');
       setPin('');
+      inputRef.current?.focus();
     }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') submit();
   }
 
   const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
@@ -41,15 +57,36 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
         <h2 className="text-white text-2xl font-bold text-center mb-1">Enter Your Employee ID</h2>
         <p className="text-slate-400 text-sm text-center mb-6">Your employee number, e.g. EMP-001</p>
 
-        {/* Display */}
-        <div className="bg-slate-800 rounded-xl px-5 py-3 text-center mb-2 min-h-[52px] flex items-center justify-center">
+        {/* Hidden input — captures keyboard/numpad hardware input and routes through state */}
+        <input
+          ref={inputRef}
+          type="text"
+          value={pin}
+          onChange={handleKeyInput}
+          onKeyDown={handleKeyDown}
+          className="sr-only"
+          aria-label="Employee ID"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+        />
+
+        {/* Display — tap to show on-screen keyboard (needed for alpha-numeric IDs like EMP-001) */}
+        <button
+          type="button"
+          onClick={() => inputRef.current?.focus()}
+          className="w-full bg-slate-800 rounded-xl px-5 py-3 text-center mb-2 min-h-[52px] flex items-center justify-center cursor-text"
+          aria-label="Tap to type employee ID"
+        >
           <span className="text-white text-3xl font-mono tracking-widest">
             {pin || <span className="text-slate-600">_ _ _ _ _</span>}
           </span>
-        </div>
+        </button>
+        <p className="text-slate-500 text-xs text-center mb-1">Tap the field above to type with keyboard</p>
         {error && <p className="text-red-400 text-sm text-center mb-2">{error}</p>}
 
-        {/* Numpad */}
+        {/* Numpad — quick entry for purely numeric IDs */}
         <div className="grid grid-cols-3 gap-3 mt-4">
           {keys.map((k, i) =>
             k === '' ? (

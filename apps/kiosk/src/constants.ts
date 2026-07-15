@@ -5,15 +5,18 @@ export const MATCH_DIST_LOW    = 0.65;  // below this → low-confidence, flagge
 // Above MATCH_DIST_LOW → no match
 
 export const RATE_LIMIT_MS     = 3 * 60 * 1000;  // 3 min between events per worker per direction
-export const RESULT_DISPLAY_MS = 3_000;           // ms to show result before resetting to idle
+export const RESULT_DISPLAY_MS = 2_500;           // ms to show result before resetting to idle
 
 // Liveness: require LIVENESS_FRAMES frames with nose-tip position std-dev > LIVENESS_VARIANCE_PX
-export const LIVENESS_FRAMES       = 12;
+// 8 frames × 120ms ≈ 1s minimum liveness window (was 12 × 150ms ≈ 1.8s)
+export const LIVENESS_FRAMES       = 8;
 export const LIVENESS_VARIANCE_PX  = 2.5;  // px — below this = likely static image
 export const EAR_BLINK_THRESHOLD   = 0.22; // eye aspect ratio below this = blink
+// PRODUCT DECISION: uncomment blink requirement in useLiveness.ts for stronger anti-spoofing.
+// It stops photo bypass but may reject real users who don't blink in the 1s window.
 
 // Face detection runs every this many ms (throttles CPU on budget tablets)
-export const DETECTION_INTERVAL_MS = 150;
+export const DETECTION_INTERVAL_MS = 120;
 
 // Roster cache refresh interval
 export const ROSTER_REFRESH_MS = 30 * 60 * 1000;  // 30 min

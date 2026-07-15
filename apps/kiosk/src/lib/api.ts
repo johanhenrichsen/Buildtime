@@ -89,9 +89,11 @@ export async function fetchRoster(): Promise<RosterEntry[]> {
 
 export async function syncEvents(events: PendingEvent[]): Promise<void> {
   if (events.length === 0) return;
+  // Strip `synced` — it's internal IDB state; API rejects unknown fields (forbidNonWhitelisted)
+  const payload = events.map(({ synced: _omit, ...rest }) => rest);
   const res = await authedFetch(
     '/api/v1/attendance/sync',
-    { method: 'POST', body: JSON.stringify({ events }) },
+    { method: 'POST', body: JSON.stringify({ events: payload }) },
     10_000,
   );
   if (!res.ok) throw new Error(`Sync failed (${res.status})`);

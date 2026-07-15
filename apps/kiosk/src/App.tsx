@@ -269,7 +269,10 @@ export default function App() {
             {retryCountdown > 0 && (
               <p className="text-slate-500 text-sm">Auto-retrying in {retryCountdown}s…</p>
             )}
-            <button onClick={init} className="mt-2 px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold active:scale-95 transition-transform">
+            <button
+              onClick={() => { localStorage.removeItem('kiosk_token'); init(); }}
+              className="mt-2 px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold active:scale-95 transition-transform"
+            >
               Retry Now
             </button>
           </div>

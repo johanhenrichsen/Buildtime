@@ -83,7 +83,16 @@ export async function fetchRoster(): Promise<RosterEntry[]> {
   await getToken();
   const kioskId = _tokenPayload!.sub;
   const res = await authedFetch(`/api/v1/kiosks/${kioskId}/roster`, undefined, 15_000);
-  if (!res.ok) throw new Error(`Could not load worker list (${res.status})`);
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 404) {
+      // Stale cached token — the stored kiosk ID no longer matches the server.
+      // Clear it so the next retry forces a fresh device-key auth.
+      _token = null;
+      _tokenPayload = null;
+      localStorage.removeItem('kiosk_token');
+    }
+    throw new Error(`Could not load worker list (${res.status})`);
+  }
   return res.json() as Promise<RosterEntry[]>;
 }
 

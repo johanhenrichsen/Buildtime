@@ -20,6 +20,7 @@ import { AttendanceService } from './attendance.service';
 import { SyncEventsDto } from './dto/sync-events.dto';
 import { ReviewEventDto } from './dto/review-event.dto';
 import { ManualAttendanceDto } from './dto/manual-attendance.dto';
+import { AttendanceEventsQueryDto } from './dto/attendance-events-query.dto';
 
 @Controller('attendance')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -44,6 +45,13 @@ export class AttendanceController {
     @CurrentUser() user: WorkerJwtPayload,
   ) {
     return this.attendanceService.manualRecord(dto, user.sub);
+  }
+
+  // Raw attendance event log for any date range — used by admin Reports page.
+  @Get('events')
+  @RequirePermissions('edit_attendance')
+  getEvents(@Query() query: AttendanceEventsQueryDto) {
+    return this.attendanceService.getEvents(query);
   }
 
   // Lists events where flaggedForReview = true, joined with worker name.

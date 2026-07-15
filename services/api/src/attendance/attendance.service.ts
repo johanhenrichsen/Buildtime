@@ -4,6 +4,7 @@ import { KioskJwtPayload, WorkerJwtPayload } from '@buildtime/shared-types';
 import { SyncEventsDto } from './dto/sync-events.dto';
 import { ReviewEventDto } from './dto/review-event.dto';
 import { ManualAttendanceDto } from './dto/manual-attendance.dto';
+import { AttendanceEventsQueryDto } from './dto/attendance-events-query.dto';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -75,6 +76,31 @@ export class AttendanceService {
     });
 
     return event;
+  }
+
+  async getEvents(query: AttendanceEventsQueryDto) {
+    const from = new Date(query.from);
+    // Include the full 'to' day by moving the boundary to start of next day
+    const to = new Date(query.to);
+    to.setDate(to.getDate() + 1);
+
+    return this.prisma.attendanceEvent.findMany({
+      where: {
+        serverTs: { gte: from, lt: to },
+        ...(query.workerId ? { workerId: query.workerId } : {}),
+      },
+      orderBy: [{ worker: { name: 'asc' } }, { serverTs: 'asc' }],
+      take: 5000,
+      select: {
+        id: true,
+        eventType: true,
+        serverTs: true,
+        matchMethod: true,
+        flaggedForReview: true,
+        worker: { select: { name: true, employeeNo: true } },
+        site: { select: { name: true } },
+      },
+    });
   }
 
   async getFlagged(params: { page?: number; limit?: number }) {

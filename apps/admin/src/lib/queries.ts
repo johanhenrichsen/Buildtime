@@ -152,6 +152,14 @@ export function useMarkCashAdvanceDeducted() {
   })
 }
 
+export function useAttendanceEvents(params: { from?: string; to?: string; workerId?: string }) {
+  return useQuery({
+    queryKey: ['attendance-events', params.from, params.to, params.workerId],
+    queryFn: () => api.getAttendanceEvents({ from: params.from!, to: params.to!, workerId: params.workerId }),
+    enabled: !!params.from && !!params.to,
+  })
+}
+
 export function useManualAttendance() {
   return useMutation({
     mutationFn: (data: Parameters<typeof api.manualAttendance>[0]) => api.manualAttendance(data),

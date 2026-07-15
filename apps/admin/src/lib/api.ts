@@ -287,6 +287,29 @@ export async function markCashAdvanceDeducted(id: string, cutoffId: string): Pro
   return json(res);
 }
 
+// ── Attendance event log ──────────────────────────────────────────────────────
+
+export interface AttendanceEventRow {
+  id: string;
+  eventType: string;
+  serverTs: string;
+  matchMethod: string;
+  flaggedForReview: boolean;
+  worker: { name: string; employeeNo: string };
+  site: { name: string };
+}
+
+export async function getAttendanceEvents(params: {
+  from: string;
+  to: string;
+  workerId?: string;
+}): Promise<AttendanceEventRow[]> {
+  const qs = new URLSearchParams({ from: params.from, to: params.to });
+  if (params.workerId) qs.set('workerId', params.workerId);
+  const res = await apiFetch(`/api/v1/attendance/events?${qs}`);
+  return json(res);
+}
+
 // ── Manual attendance ─────────────────────────────────────────────────────────
 
 export async function manualAttendance(data: {

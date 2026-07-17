@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadModels } from './lib/faceApi';
 import { initRoster, refreshRoster, getRoster, getLastRefreshedAt } from './lib/roster';
-import { findBestMatch } from './lib/matcher';
 import { recordEvent, getExpectedEventType, getPendingCount } from './lib/queue';
 import { startSyncLoop, runSync } from './lib/sync';
 import { playSuccess, playFlagged, playFail } from './lib/audio';
@@ -14,6 +13,7 @@ import { CheckinResult as CheckinResultView } from './components/CheckinResult';
 import { ChooseAction } from './components/ChooseAction';
 import { PinEntry } from './components/PinEntry';
 import { MATCH_DIST_HIGH, MATCH_DIST_LOW, RESULT_DISPLAY_MS } from './constants';
+import { findBestMatchMulti } from './lib/matcher';
 import type { CheckinResult, EventType, KioskPhase, MatchedWorker, RosterEntry } from './types';
 
 const AUTO_RETRY_DELAY_MS = 30_000;
@@ -171,14 +171,16 @@ export default function App() {
   }, [liveness]);
 
   // ── Face match handler ───────────────────────────────────────────────────
-  const handleMatch = useCallback(async (descriptor: Float32Array) => {
+  // Takes all descriptors collected during the liveness window and picks the
+  // frame with the lowest distance — one blurry or off-angle frame won't fail.
+  const handleMatch = useCallback(async (descriptors: Float32Array[]) => {
     if (matchingRef.current || !selectedAction) return;
     matchingRef.current = true;
     setPhase('matching');
 
     try {
       const roster = await getRoster();
-      const match  = findBestMatch(descriptor, roster);
+      const match  = findBestMatchMulti(descriptors, roster);
 
       if (!match || match.distance > MATCH_DIST_LOW) {
         playFail();
@@ -195,7 +197,6 @@ export default function App() {
     } catch {
       matchingRef.current = false;
       liveness.reset();
-      // Show a result card so the user knows something went wrong — don't silently loop back
       showResult({ kind: 'no_match', message: 'Could not record — check your connection and try again' });
     }
   }, [selectedAction, doRecord, showResult, liveness]);
@@ -207,10 +208,10 @@ export default function App() {
   }, [detection.detected, phase]);
 
   useEffect(() => {
-    if (phase === 'liveness' && liveness.status === 'passed' && detection.descriptor) {
-      handleMatch(detection.descriptor);
+    if (phase === 'liveness' && liveness.status === 'passed' && liveness.descriptors.length > 0) {
+      handleMatch(liveness.descriptors);
     }
-  }, [liveness.status, phase, detection.descriptor, handleMatch]);
+  }, [liveness.status, liveness.descriptors, phase, handleMatch]);
 
   // ── PIN fallback ─────────────────────────────────────────────────────────
   const handlePinSuccess = useCallback(async (entry: RosterEntry) => {

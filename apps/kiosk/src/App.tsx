@@ -357,13 +357,31 @@ export default function App() {
 
         {/* ── Idle: action selection ─────────────────────────────────────── */}
         {phase === 'idle' && (
-          <div className="flex flex-col items-center justify-center h-full px-8">
+          <div className="flex flex-col items-center h-full px-8 pt-8 pb-5">
+            {/* Branding */}
+            <div className="flex flex-col items-center gap-1">
+              <svg width="56" height="56" viewBox="0 0 72 72" fill="none">
+                <circle cx="36" cy="36" r="33" stroke="white" strokeWidth="3" opacity="0.95" />
+                <line x1="36" y1="5"  x2="36" y2="12" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                <line x1="36" y1="60" x2="36" y2="67" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                <line x1="5"  y1="36" x2="12" y2="36" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                <line x1="60" y1="36" x2="67" y2="36" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                <line x1="36" y1="36" x2="22" y2="19" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+                <line x1="36" y1="36" x2="51" y2="26" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                <circle cx="36" cy="36" r="3.5" fill="white" />
+              </svg>
+              <h1 className="text-4xl font-bold text-white tracking-tight leading-none mt-2">BuildTime</h1>
+              <p className="text-[11px] font-bold text-neutral-500 tracking-[0.3em] uppercase mt-0.5">Kiosk</p>
+            </div>
+
             {/* Live clock */}
-            <div className="text-center mb-10">
-              <div className="text-6xl font-bold tabular-nums text-white leading-none">
-                {clockTime}
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <div className="text-center">
+                <div className="text-6xl font-bold tabular-nums text-white leading-none">
+                  {clockTime}
+                </div>
+                <div className="text-neutral-500 text-base mt-2">{clockDate}</div>
               </div>
-              <div className="text-neutral-500 text-base mt-2">{clockDate}</div>
             </div>
 
             <div className="w-full max-w-sm space-y-3">

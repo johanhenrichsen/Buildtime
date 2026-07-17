@@ -8,6 +8,7 @@ import { useCamera } from './hooks/useCamera';
 import { useFaceDetection } from './hooks/useFaceDetection';
 import { useLiveness } from './hooks/useLiveness';
 import { StatusBar } from './components/StatusBar';
+import { SplashScreen } from './components/SplashScreen';
 import { CameraView } from './components/CameraView';
 import { CheckinResult as CheckinResultView } from './components/CheckinResult';
 import { ChooseAction } from './components/ChooseAction';
@@ -17,6 +18,7 @@ import { findBestMatchMulti } from './lib/matcher';
 import type { CheckinResult, EventType, KioskPhase, MatchedWorker, RosterEntry } from './types';
 
 const AUTO_RETRY_DELAY_MS = 30_000;
+const SPLASH_MIN_MS       = 1_600;  // minimum time splash stays visible
 
 function friendlyInitError(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
@@ -45,9 +47,12 @@ export default function App() {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [pinRoster, setPinRoster]             = useState<RosterEntry[]>([]);
 
-  const videoRef    = useRef<HTMLVideoElement>(null);
-  const canvasRef   = useRef<HTMLCanvasElement>(null);
-  const matchingRef = useRef(false);
+  const videoRef        = useRef<HTMLVideoElement>(null);
+  const canvasRef       = useRef<HTMLCanvasElement>(null);
+  const matchingRef     = useRef(false);
+  const splashOpenedAt  = useRef(Date.now());
+  const [splashVisible,  setSplashVisible]  = useState(true);
+  const [splashExiting,  setSplashExiting]  = useState(false);
 
   // Camera always warms up immediately — detection only starts once action is selected
   // PRODUCT DECISION: set cameraActive=true during 'idle' to show live preview on action screen.
@@ -87,6 +92,18 @@ export default function App() {
   }, []);
 
   useEffect(() => { init(); }, [init]);
+
+  // ── Splash exit — wait for minimum display time then slide up ────────────
+  useEffect(() => {
+    if (phase === 'init' || !splashVisible || splashExiting) return;
+    const elapsed   = Date.now() - splashOpenedAt.current;
+    const remaining = Math.max(0, SPLASH_MIN_MS - elapsed);
+    const id = setTimeout(() => {
+      setSplashExiting(true);
+      setTimeout(() => setSplashVisible(false), 700); // match CSS duration-700
+    }, remaining);
+    return () => clearTimeout(id);
+  }, [phase, splashVisible, splashExiting]);
 
   // ── Online / offline events ───────────────────────────────────────────────
   useEffect(() => {
@@ -260,6 +277,7 @@ export default function App() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 bg-neutral-900 text-white overflow-hidden flex flex-col">
+      {splashVisible && <SplashScreen exiting={splashExiting} />}
       <StatusBar
         isOnline={isOnline}
         pendingCount={pendingCount}

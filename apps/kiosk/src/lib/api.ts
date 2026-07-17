@@ -96,6 +96,19 @@ export async function fetchRoster(): Promise<RosterEntry[]> {
   return res.json() as Promise<RosterEntry[]>;
 }
 
+export async function requestAdvance(workerId: string, amount: number, reason: string): Promise<{ id: string }> {
+  const res = await authedFetch(
+    '/api/v1/attendance/request-advance',
+    { method: 'POST', body: JSON.stringify({ workerId, amount, reason }) },
+    10_000,
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Could not submit advance request (${res.status}) ${text}`);
+  }
+  return res.json() as Promise<{ id: string }>;
+}
+
 export async function syncEvents(events: PendingEvent[]): Promise<void> {
   if (events.length === 0) return;
   // Strip `synced` — it's internal IDB state; API rejects unknown fields (forbidNonWhitelisted)

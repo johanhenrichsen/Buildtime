@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { SiteStatus } from '@buildtime/shared-types';
 
 export class UpdateSiteDto {
@@ -17,4 +17,7 @@ export class UpdateSiteDto {
   @IsOptional()
   @IsEnum(['active', 'inactive'] satisfies SiteStatus[])
   status?: SiteStatus;
+
+  @IsOptional() @IsUUID()
+  shiftId?: string;
 }

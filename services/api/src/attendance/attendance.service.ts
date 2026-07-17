@@ -133,6 +133,67 @@ export class AttendanceService {
     return { data, meta: { total, page, limit } };
   }
 
+  async getOnSite() {
+    // Last event per worker in the last 24 hours; if it's 'in', they're on site.
+    const rows = await this.prisma.$queryRaw<{
+      workerId: string;
+      name: string;
+      employeeNo: string;
+      photo: string | null;
+      siteId: string;
+      siteName: string;
+      clockedInAt: Date;
+    }[]>`
+      WITH last_events AS (
+        SELECT DISTINCT ON (ae.worker_id)
+          ae.worker_id,
+          ae.event_type,
+          ae.server_ts,
+          ae.site_id
+        FROM attendance_events ae
+        WHERE ae.server_ts >= NOW() - INTERVAL '24 hours'
+        ORDER BY ae.worker_id, ae.server_ts DESC
+      )
+      SELECT
+        le.worker_id   AS "workerId",
+        le.server_ts   AS "clockedInAt",
+        le.site_id     AS "siteId",
+        w.name,
+        w.employee_no  AS "employeeNo",
+        w.photo,
+        s.name         AS "siteName"
+      FROM last_events le
+      JOIN workers w ON w.id = le.worker_id
+      JOIN sites s ON s.id = le.site_id
+      WHERE le.event_type = 'in'
+      ORDER BY w.name
+    `;
+    return rows;
+  }
+
+  async getDashboardStats() {
+    const todayUtc = new Date();
+    todayUtc.setUTCHours(0, 0, 0, 0);
+    // Use midnight PHT-8 = yesterday 16:00 UTC as the "today PHT" boundary
+    const todayPht = new Date(todayUtc.getTime() - 8 * 60 * 60 * 1000);
+
+    const [todayClockIns, pendingFlagged, pendingAdvances, onSite] = await Promise.all([
+      this.prisma.attendanceEvent.count({
+        where: { serverTs: { gte: todayPht }, eventType: 'in' },
+      }),
+      this.prisma.attendanceEvent.count({ where: { flaggedForReview: true } }),
+      this.prisma.cashAdvance.count({ where: { status: 'pending' } }),
+      this.getOnSite(),
+    ]);
+
+    return {
+      onSiteCount: onSite.length,
+      todayClockIns,
+      pendingFlagged,
+      pendingAdvances,
+    };
+  }
+
   async reviewEvent(id: string, dto: ReviewEventDto, actor: WorkerJwtPayload) {
     const event = await this.prisma.attendanceEvent.findUnique({
       where: { id },

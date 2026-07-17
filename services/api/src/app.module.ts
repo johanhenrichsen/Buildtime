@@ -12,6 +12,7 @@ import { DtrModule } from './dtr/dtr.module';
 import { AuditModule } from './audit/audit.module';
 import { RolesModule } from './roles/roles.module';
 import { CashAdvancesModule } from './cash-advances/cash-advances.module';
+import { ShiftsModule } from './shifts/shifts.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 
 @Module({
@@ -30,6 +31,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
     AuditModule,
     RolesModule,
     CashAdvancesModule,
+    ShiftsModule,
   ],
 })
 export class AppModule {}

@@ -14,6 +14,8 @@ import {
   Menu,
   Wallet,
   X,
+  LayoutDashboard,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { clearToken, getUser } from '@/lib/auth';
@@ -26,8 +28,10 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
+  { label: 'Dashboard',     path: '/',           icon: <LayoutDashboard className="w-4 h-4" /> },
   { label: 'Workers',       path: '/workers',    icon: <Users className="w-4 h-4" /> },
   { label: 'Sites',         path: '/sites',      icon: <Building2 className="w-4 h-4" /> },
+  { label: 'Shifts',        path: '/shifts',     icon: <Clock className="w-4 h-4" /> },
   { label: 'Enrollment',    path: '/enrollment', icon: <Camera className="w-4 h-4" /> },
   { label: 'Payroll / DTR', path: '/payroll',    icon: <FileText className="w-4 h-4" /> },
   { label: 'Cash Advances', path: '/advances',   icon: <Wallet className="w-4 h-4" /> },
@@ -90,7 +94,9 @@ export function Layout({ children }: LayoutProps) {
 
       <nav className="flex-1 overflow-y-auto py-3 px-2">
         {NAV.map((item) => {
-          const isActive = location === item.path || location.startsWith(item.path + '/');
+          const isActive = item.path === '/'
+            ? location === '/'
+            : location === item.path || location.startsWith(item.path + '/');
           return (
             <Link
               key={item.path}

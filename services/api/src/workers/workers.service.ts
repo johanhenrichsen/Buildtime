@@ -15,6 +15,7 @@ const SAFE_SELECT = {
   hireDate: true,
   status: true,
   email: true,
+  photo: true,
   faceEmbeddingRef: true,
   createdAt: true,
   updatedAt: true,
@@ -86,6 +87,7 @@ export class WorkersService {
         ...(dto.employmentType && { employmentType: dto.employmentType }),
         ...(dto.dailyRate !== undefined && { dailyRate: dto.dailyRate }),
         ...(dto.status && { status: dto.status }),
+        ...('photo' in dto && { photo: dto.photo ?? null }),
       },
       select: SAFE_SELECT,
     });

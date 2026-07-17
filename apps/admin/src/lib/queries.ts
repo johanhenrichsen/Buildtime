@@ -1,6 +1,64 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from './api'
 
+export function useOnSite() {
+  return useQuery({
+    queryKey: ['on-site'],
+    queryFn: () => api.getOnSite(),
+    refetchInterval: 30_000,
+  })
+}
+
+export function useDashboardStats() {
+  return useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: () => api.getDashboardStats(),
+    refetchInterval: 30_000,
+  })
+}
+
+export function useShifts() {
+  return useQuery({
+    queryKey: ['shifts'],
+    queryFn: () => api.getShifts(),
+    staleTime: 60_000,
+  })
+}
+
+export function useCreateShift() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Parameters<typeof api.createShift>[0]) => api.createShift(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['shifts'] }),
+  })
+}
+
+export function useUpdateShift() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof api.updateShift>[1] }) =>
+      api.updateShift(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['shifts'] }); qc.invalidateQueries({ queryKey: ['sites'] }); },
+  })
+}
+
+export function useDeleteShift() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.deleteShift(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['shifts'] }); qc.invalidateQueries({ queryKey: ['sites'] }); },
+  })
+}
+
+export function useUpdateSite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof api.updateSite>[1] }) =>
+      api.updateSite(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sites'] }),
+  })
+}
+
 export function useRoles() {
   return useQuery({
     queryKey: ['roles'],

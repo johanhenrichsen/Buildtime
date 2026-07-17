@@ -40,6 +40,20 @@ model RolePermission {
   @@map("role_permissions")
 }
 
+model Shift {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  startTime    String   @map("start_time")
+  endTime      String   @map("end_time")
+  graceMinutes Int      @default(15) @map("grace_minutes")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sites Site[]
+
+  @@map("shifts")
+}
+
 model Site {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name      String
@@ -48,9 +62,11 @@ model Site {
   geoLng    Float?   @map("geo_lng")
   projectId String?  @map("project_id") @db.Uuid
   status    String   @default("active")
+  shiftId   String?  @map("shift_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  shift            Shift?            @relation(fields: [shiftId], references: [id])
   kiosks           Kiosk[]
   attendanceEvents AttendanceEvent[]
 
@@ -92,6 +108,7 @@ model Worker {
   email            String?   @unique
   passwordHash     String?   @map("password_hash")
   faceEmbeddingRef String?   @map("face_embedding_ref") @db.Uuid
+  photo            String?   @db.Text
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 

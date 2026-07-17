@@ -5,6 +5,8 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { Layout } from '@/components/Layout';
 import { getUser } from '@/lib/auth';
 import Login from '@/pages/Login';
+import Dashboard from '@/pages/Dashboard';
+import Shifts from '@/pages/Shifts';
 import Workers from '@/pages/Workers';
 import WorkerDetail from '@/pages/WorkerDetail';
 import Sites from '@/pages/Sites';
@@ -34,7 +36,8 @@ function AppShell() {
   return (
     <Layout>
       <Switch>
-        <Route path="/" component={() => <Redirect to="/workers" />} />
+        <Route path="/" component={Dashboard} />
+        <Route path="/shifts" component={Shifts} />
         <Route path="/workers" component={Workers} />
         <Route path="/workers/:id" component={WorkerDetail} />
         <Route path="/sites" component={Sites} />

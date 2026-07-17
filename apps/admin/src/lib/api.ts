@@ -41,11 +41,80 @@ export async function login(email: string, password: string): Promise<{ access_t
 
 // ── Sites ─────────────────────────────────────────────────────────────────────
 
+// ── Shifts ────────────────────────────────────────────────────────────────────
+
+export interface Shift {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  graceMinutes: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getShifts(): Promise<Shift[]> {
+  const res = await apiFetch('/api/v1/shifts');
+  return json(res);
+}
+
+export async function createShift(data: { name: string; startTime: string; endTime: string; graceMinutes: number }): Promise<Shift> {
+  const res = await apiFetch('/api/v1/shifts', { method: 'POST', body: JSON.stringify(data) });
+  return json(res);
+}
+
+export async function updateShift(id: string, data: Partial<{ name: string; startTime: string; endTime: string; graceMinutes: number }>): Promise<Shift> {
+  const res = await apiFetch(`/api/v1/shifts/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  return json(res);
+}
+
+export async function deleteShift(id: string): Promise<void> {
+  await apiFetch(`/api/v1/shifts/${id}`, { method: 'DELETE' });
+}
+
+export async function updateSite(id: string, data: { shiftId?: string | null; status?: string }): Promise<Site> {
+  const res = await apiFetch(`/api/v1/sites/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  return json(res);
+}
+
+// ── On-site dashboard ─────────────────────────────────────────────────────────
+
+export interface OnSiteWorker {
+  workerId: string;
+  name: string;
+  employeeNo: string;
+  photo: string | null;
+  siteId: string;
+  siteName: string;
+  clockedInAt: string;
+}
+
+export interface DashboardStats {
+  onSiteCount: number;
+  todayClockIns: number;
+  pendingFlagged: number;
+  pendingAdvances: number;
+}
+
+export async function getOnSite(): Promise<OnSiteWorker[]> {
+  const res = await apiFetch('/api/v1/attendance/on-site');
+  return json(res);
+}
+
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const res = await apiFetch('/api/v1/attendance/dashboard');
+  return json(res);
+}
+
+// ── Sites ─────────────────────────────────────────────────────────────────────
+
 export interface Site {
   id: string;
   name: string;
   status: string;
   address?: string;
+  shiftId?: string | null;
+  shift?: Shift | null;
   createdAt?: string;
 }
 
@@ -66,6 +135,7 @@ export interface Worker {
   dailyRate: string;
   hireDate: string;
   status: string;
+  photo?: string | null;
   role?: { id: string; name: string };
 }
 

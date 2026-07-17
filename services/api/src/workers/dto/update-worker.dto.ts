@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { EmploymentType, WorkerStatus } from '@buildtime/shared-types';
 
@@ -19,4 +19,7 @@ export class UpdateWorkerDto {
   @IsOptional()
   @IsEnum(['active', 'inactive', 'terminated'] satisfies WorkerStatus[])
   status?: WorkerStatus;
+
+  @IsOptional() @ValidateIf(o => o.photo !== null) @IsString()
+  photo?: string | null;
 }

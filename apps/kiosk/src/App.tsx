@@ -13,7 +13,9 @@ import { CameraView } from './components/CameraView';
 import { CheckinResult as CheckinResultView } from './components/CheckinResult';
 import { ChooseAction } from './components/ChooseAction';
 import { PinEntry } from './components/PinEntry';
+import { AdvanceForm } from './components/AdvanceForm';
 import { MATCH_DIST_HIGH, MATCH_DIST_LOW, RESULT_DISPLAY_MS } from './constants';
+import { requestAdvance } from './lib/api';
 import { findBestMatchMulti } from './lib/matcher';
 import type { CheckinResult, EventType, KioskPhase, MatchedWorker, RosterEntry } from './types';
 
@@ -46,6 +48,8 @@ export default function App() {
   const [retryCountdown, setRetryCountdown]   = useState(0);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [pinRoster, setPinRoster]             = useState<RosterEntry[]>([]);
+
+  const [advanceWorker, setAdvanceWorker] = useState<RosterEntry | null>(null);
 
   const videoRef        = useRef<HTMLVideoElement>(null);
   const canvasRef       = useRef<HTMLCanvasElement>(null);
@@ -261,6 +265,29 @@ export default function App() {
     setPhase('idle');
   }, []);
 
+  // ── Cash advance flow ─────────────────────────────────────────────────────
+  const handleAdvancePinSuccess = useCallback((entry: RosterEntry) => {
+    setAdvanceWorker(entry);
+    setPhase('advance_form');
+  }, []);
+
+  const handleAdvanceSubmit = useCallback(async (amount: number, reason: string) => {
+    if (!advanceWorker) return;
+    await requestAdvance(advanceWorker.workerId, amount, reason);
+    setAdvanceWorker(null);
+    setResult({ kind: 'success', workerName: advanceWorker.name, message: 'Advance request submitted — see your supervisor for approval' });
+    setPhase('result');
+    setTimeout(() => {
+      setResult(null);
+      setPhase('idle');
+    }, RESULT_DISPLAY_MS);
+  }, [advanceWorker]);
+
+  const handleAdvanceCancel = useCallback(() => {
+    setAdvanceWorker(null);
+    setPhase('idle');
+  }, []);
+
   // ── Live clock for idle screen ────────────────────────────────────────────
   const [clockNow, setClockNow] = useState(() => new Date());
   useEffect(() => {
@@ -344,6 +371,13 @@ export default function App() {
               >
                 Use Employee ID
               </button>
+
+              <button
+                onClick={() => setPhase('advance_id')}
+                className="w-full py-4 rounded-xl bg-neutral-800 text-neutral-400 text-sm font-medium border border-neutral-700 active:bg-neutral-700 transition-colors"
+              >
+                Request Cash Advance
+              </button>
             </div>
           </div>
         )}
@@ -385,6 +419,26 @@ export default function App() {
         {phase === 'pin' && (
           <div className="absolute inset-0">
             <PinEntry roster={pinRoster} onSuccess={handlePinSuccess} onCancel={() => setPhase('idle')} />
+          </div>
+        )}
+
+        {phase === 'advance_id' && (
+          <div className="absolute inset-0">
+            <PinEntry
+              roster={pinRoster}
+              onSuccess={handleAdvancePinSuccess}
+              onCancel={handleAdvanceCancel}
+            />
+          </div>
+        )}
+
+        {phase === 'advance_form' && advanceWorker && (
+          <div className="absolute inset-0">
+            <AdvanceForm
+              worker={advanceWorker}
+              onSubmit={handleAdvanceSubmit}
+              onCancel={handleAdvanceCancel}
+            />
           </div>
         )}
 

@@ -22,7 +22,7 @@ export class SitesService {
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { name: 'asc' },
-        include: { _count: { select: { kiosks: true } } },
+        include: { _count: { select: { kiosks: true } }, shift: true },
       }),
       this.prisma.site.count({ where }),
     ]).then(([data, total]) => ({ data, meta: { total, page, limit } }));
@@ -31,7 +31,7 @@ export class SitesService {
   async findOne(id: string) {
     const site = await this.prisma.site.findUnique({
       where: { id },
-      include: { kiosks: true, _count: { select: { attendanceEvents: true } } },
+      include: { kiosks: true, shift: true, _count: { select: { attendanceEvents: true } } },
     });
     if (!site) throw new NotFoundException(`Site ${id} not found`);
     return site;

@@ -47,6 +47,18 @@ export class AttendanceController {
     return this.attendanceService.manualRecord(dto, user.sub);
   }
 
+  @Get('on-site')
+  @RequirePermissions('edit_attendance')
+  getOnSite() {
+    return this.attendanceService.getOnSite();
+  }
+
+  @Get('dashboard')
+  @RequirePermissions('edit_attendance')
+  getDashboard() {
+    return this.attendanceService.getDashboardStats();
+  }
+
   // Raw attendance event log for any date range — used by admin Reports page.
   @Get('events')
   @RequirePermissions('edit_attendance')

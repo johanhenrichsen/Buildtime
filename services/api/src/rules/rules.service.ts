@@ -15,6 +15,11 @@ function toPhtHours(utcDate: Date): number {
   return pht.getUTCHours() + pht.getUTCMinutes() / 60;
 }
 
+function timeStringToHours(timeStr: string): number {
+  const [h, m] = timeStr.split(':').map(Number);
+  return h + m / 60;
+}
+
 /**
  * Compute night differential hours overlapping [22:00–06:00] PHT.
  * Checks 3 consecutive windows around the work period.
@@ -66,7 +71,7 @@ export class RulesService {
     const cutoff = await this.prisma.payrollCutoff.findUnique({ where: { id: cutoffId } });
     if (!cutoff) throw new NotFoundException(`Cutoff ${cutoffId} not found`);
 
-    // Fetch all attendance events in the cutoff period (by serverTs)
+    // Fetch all attendance events in the cutoff period (by serverTs), including site shift
     const events = await this.prisma.attendanceEvent.findMany({
       where: {
         serverTs: {
@@ -79,17 +84,23 @@ export class RulesService {
         workerId: true,
         eventType: true,
         serverTs: true,
+        site: { select: { shift: { select: { startTime: true, endTime: true, graceMinutes: true } } } },
       },
     });
 
-    // Group by workerId + PHT local date
-    const groups = new Map<string, { workerId: string; date: string; events: { eventType: string; serverTs: Date }[] }>();
+    // Group by workerId + PHT local date; keep the site shift from the first event of the day
+    const groups = new Map<string, {
+      workerId: string;
+      date: string;
+      shift: { startTime: string; endTime: string; graceMinutes: number } | null;
+      events: { eventType: string; serverTs: Date }[];
+    }>();
 
     for (const ev of events) {
       const date = toPhilippineDate(ev.serverTs);
       const key  = `${ev.workerId}::${date}`;
       if (!groups.has(key)) {
-        groups.set(key, { workerId: ev.workerId, date, events: [] });
+        groups.set(key, { workerId: ev.workerId, date, shift: ev.site?.shift ?? null, events: [] });
       }
       groups.get(key)!.events.push({ eventType: ev.eventType, serverTs: ev.serverTs });
     }
@@ -110,12 +121,21 @@ export class RulesService {
       const arrivalHours   = toPhtHours(arrival);
       const departureHours = toPhtHours(departure);
 
+      // Use site shift if defined, otherwise fall back to env var defaults
+      const shiftStartHour = group.shift
+        ? timeStringToHours(group.shift.startTime)
+        : this.shiftStartHour;
+      const shiftEndHour = group.shift
+        ? timeStringToHours(group.shift.endTime)
+        : this.shiftEndHour;
+      const graceMinutes = group.shift ? group.shift.graceMinutes : this.graceMinutes;
+
       // Late: minutes after shiftStart + grace
-      const lateMin = Math.max(0, Math.round((arrivalHours - (this.shiftStartHour + this.graceMinutes / 60)) * 60));
+      const lateMin = Math.max(0, Math.round((arrivalHours - (shiftStartHour + graceMinutes / 60)) * 60));
 
       // Undertime: minutes before shiftEnd (only if left early)
-      const undertimeMin = departureHours < this.shiftEndHour
-        ? Math.max(0, Math.round((this.shiftEndHour - departureHours) * 60))
+      const undertimeMin = departureHours < shiftEndHour
+        ? Math.max(0, Math.round((shiftEndHour - departureHours) * 60))
         : 0;
 
       // Total minutes worked
@@ -129,8 +149,8 @@ export class RulesService {
       const regularHrs = Math.min(8, totalMinutesWorked / 60);
 
       // OT: hours after shiftEnd
-      const otHrs = departureHours > this.shiftEndHour
-        ? Math.max(0, departureHours - this.shiftEndHour)
+      const otHrs = departureHours > shiftEndHour
+        ? Math.max(0, departureHours - shiftEndHour)
         : 0;
 
       // Night differential

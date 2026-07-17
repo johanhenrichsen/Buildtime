@@ -1,42 +1,68 @@
 let ctx: AudioContext | null = null;
 
-function getCtx() {
+function getCtx(): AudioContext {
   if (!ctx || ctx.state === 'closed') ctx = new AudioContext();
+  if (ctx.state === 'suspended') ctx.resume();
   return ctx;
 }
 
-function tone(freq: number, type: OscillatorType, startAt: number, duration: number, volume = 0.25) {
-  const ac = getCtx();
+function tone(
+  freq: number,
+  type: OscillatorType,
+  startAt: number,
+  duration: number,
+  volume = 0.28,
+  pitchEnd?: number,
+) {
+  const ac   = getCtx();
   const osc  = ac.createOscillator();
   const gain = ac.createGain();
+
   osc.connect(gain);
   gain.connect(ac.destination);
+
   osc.type = type;
-  osc.frequency.value = freq;
-  gain.gain.setValueAtTime(volume, ac.currentTime + startAt);
+  osc.frequency.setValueAtTime(freq, ac.currentTime + startAt);
+  if (pitchEnd !== undefined) {
+    osc.frequency.exponentialRampToValueAtTime(pitchEnd, ac.currentTime + startAt + duration);
+  }
+
+  // Attack: fast ramp up then decay
+  gain.gain.setValueAtTime(0, ac.currentTime + startAt);
+  gain.gain.linearRampToValueAtTime(volume, ac.currentTime + startAt + 0.005);
   gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + startAt + duration);
+
   osc.start(ac.currentTime + startAt);
-  osc.stop(ac.currentTime + startAt + duration + 0.01);
+  osc.stop(ac.currentTime + startAt + duration + 0.02);
 }
 
-export function playSuccess() {
-  // Ascending C-E-G chime
-  tone(523, 'sine', 0,    0.25);
-  tone(659, 'sine', 0.15, 0.25);
-  tone(784, 'sine', 0.30, 0.40);
+// Clock In — ascending two-note chime: clean "ding-ding ↑"
+export function playClockIn() {
+  tone(698, 'sine', 0,    0.18, 0.30); // F5
+  tone(880, 'sine', 0.13, 0.32, 0.30); // A5
 }
 
+// Clock Out — descending mirror: "ding-ding ↓"
+export function playClockOut() {
+  tone(880, 'sine', 0,    0.18, 0.28); // A5
+  tone(698, 'sine', 0.13, 0.32, 0.26); // F5
+}
+
+// Flagged — single neutral chime (recorded but needs review)
 export function playFlagged() {
-  // Single mid note — "recorded but review needed"
-  tone(440, 'sine', 0, 0.35);
+  tone(587, 'sine', 0, 0.40, 0.22); // D5
 }
 
+// No match / error — descending buzz
 export function playFail() {
-  // Descending buzz
-  tone(300, 'sawtooth', 0,    0.20, 0.15);
-  tone(220, 'sawtooth', 0.20, 0.25, 0.15);
+  tone(380, 'sawtooth', 0,    0.14, 0.16);
+  tone(240, 'sawtooth', 0.14, 0.22, 0.14);
 }
 
+// Rate limited — short neutral tap
 export function playRateLimited() {
-  tone(350, 'triangle', 0, 0.30, 0.12);
+  tone(400, 'triangle', 0, 0.20, 0.12);
 }
+
+// Keep legacy name for any other callers
+export const playSuccess = playClockIn;

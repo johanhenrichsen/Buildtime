@@ -3,7 +3,7 @@ import { loadModels } from './lib/faceApi';
 import { initRoster, refreshRoster, getRoster, getLastRefreshedAt } from './lib/roster';
 import { recordEvent, getExpectedEventType, getPendingCount } from './lib/queue';
 import { startSyncLoop, runSync } from './lib/sync';
-import { playSuccess, playFlagged, playFail } from './lib/audio';
+import { playClockIn, playClockOut, playFlagged, playFail } from './lib/audio';
 import { useCamera } from './hooks/useCamera';
 import { useFaceDetection } from './hooks/useFaceDetection';
 import { useLiveness } from './hooks/useLiveness';
@@ -174,7 +174,7 @@ export default function App() {
       playFlagged();
       return { kind: 'flagged', workerName: worker.name, eventType, confidence: worker.confidence, message: `${label} at ${time} — flagged for HR review` };
     }
-    playSuccess();
+    eventType === 'in' ? playClockIn() : playClockOut();
     return { kind: 'success', workerName: worker.name, eventType, confidence: worker.confidence, message: `${label} at ${time}` };
   }, []);
 

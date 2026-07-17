@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { loadModels } from './lib/faceApi';
 import { initRoster, refreshRoster, getRoster, getLastRefreshedAt } from './lib/roster';
 import { recordEvent, getExpectedEventType, getPendingCount } from './lib/queue';
@@ -244,9 +244,22 @@ export default function App() {
     setPhase('idle');
   }, []);
 
+  // ── Live clock for idle screen ────────────────────────────────────────────
+  const [clockNow, setClockNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setClockNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const clockTime = useMemo(() =>
+    clockNow.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }),
+  [clockNow]);
+  const clockDate = useMemo(() =>
+    clockNow.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' }),
+  [clockNow]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-slate-900 text-white overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-neutral-900 text-white overflow-hidden flex flex-col">
       <StatusBar
         isOnline={isOnline}
         pendingCount={pendingCount}
@@ -257,22 +270,24 @@ export default function App() {
       <div className="flex-1 relative mt-9 overflow-hidden">
         {phase === 'init' && (
           <div className="flex flex-col items-center justify-center h-full gap-4">
-            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-slate-300">{loadMsg}</p>
+            <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+            <p className="text-neutral-400 text-sm">{loadMsg}</p>
           </div>
         )}
 
         {phase === 'error' && (
           <div className="flex flex-col items-center justify-center h-full gap-4 px-8 text-center">
-            <p className="text-5xl mb-2">⚠️</p>
-            <p className="text-red-400 text-xl font-bold">Kiosk offline</p>
-            <p className="text-slate-300 text-base max-w-sm">{initError}</p>
+            <div className="w-16 h-16 rounded-full bg-red-600/20 flex items-center justify-center mb-2">
+              <span className="text-red-400 text-3xl font-bold">!</span>
+            </div>
+            <p className="text-white text-xl font-bold">Kiosk Offline</p>
+            <p className="text-neutral-400 text-sm max-w-sm">{initError}</p>
             {retryCountdown > 0 && (
-              <p className="text-slate-500 text-sm">Auto-retrying in {retryCountdown}s…</p>
+              <p className="text-neutral-600 text-sm">Retrying in {retryCountdown}s</p>
             )}
             <button
               onClick={() => { localStorage.removeItem('kiosk_token'); init(); }}
-              className="mt-2 px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold active:scale-95 transition-transform"
+              className="mt-2 px-8 py-3 bg-white text-neutral-900 rounded-xl text-base font-bold active:opacity-80"
             >
               Retry Now
             </button>
@@ -281,45 +296,56 @@ export default function App() {
 
         {/* ── Idle: action selection ─────────────────────────────────────── */}
         {phase === 'idle' && (
-          <div className="flex flex-col items-center justify-center h-full gap-5 px-8">
-            <p className="text-slate-400 text-sm tracking-widest uppercase mb-2">What would you like to do?</p>
+          <div className="flex flex-col items-center justify-center h-full px-8">
+            {/* Live clock */}
+            <div className="text-center mb-10">
+              <div className="text-6xl font-bold tabular-nums text-white leading-none">
+                {clockTime}
+              </div>
+              <div className="text-neutral-500 text-base mt-2">{clockDate}</div>
+            </div>
 
-            <button
-              onClick={() => handleSelectAction('in')}
-              className="w-full max-w-sm py-8 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white text-3xl font-black tracking-wide transition-transform shadow-lg shadow-emerald-500/30"
-            >
-              Clock In
-            </button>
+            <div className="w-full max-w-sm space-y-3">
+              <button
+                onClick={() => handleSelectAction('in')}
+                className="w-full py-7 rounded-xl bg-emerald-600 active:bg-emerald-700 text-white text-2xl font-bold transition-colors"
+              >
+                Clock In
+              </button>
 
-            <button
-              onClick={() => handleSelectAction('out')}
-              className="w-full max-w-sm py-8 rounded-2xl bg-orange-500 hover:bg-orange-400 active:scale-95 text-white text-3xl font-black tracking-wide transition-transform shadow-lg shadow-orange-500/30"
-            >
-              Clock Out
-            </button>
+              <button
+                onClick={() => handleSelectAction('out')}
+                className="w-full py-7 rounded-xl bg-orange-600 active:bg-orange-700 text-white text-2xl font-bold transition-colors"
+              >
+                Clock Out
+              </button>
 
-            <button
-              onClick={() => setPhase('pin')}
-              className="w-full max-w-sm py-4 rounded-2xl bg-slate-700 hover:bg-slate-600 active:scale-95 text-white text-lg font-semibold transition-transform border border-slate-600 flex items-center justify-center gap-2"
-            >
-              <span className="text-xl">🪪</span>
-              Use Employee ID
-            </button>
+              <button
+                onClick={() => setPhase('pin')}
+                className="w-full py-4 rounded-xl bg-neutral-800 text-neutral-300 text-base font-medium border border-neutral-700 active:bg-neutral-700 transition-colors"
+              >
+                Use Employee ID
+              </button>
+            </div>
           </div>
         )}
 
         {/* Camera error overlay — only show when camera phases are active */}
         {cameraError && cameraActive && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
-            <p className="text-4xl">📷</p>
-            <p className="text-red-400 text-lg font-bold">Camera unavailable</p>
-            <p className="text-slate-300 text-sm max-w-xs">{cameraError}</p>
-            <button onClick={handleCancelScan} className="mt-2 px-6 py-2 bg-slate-700 rounded-lg text-sm">
-              ← Go Back
-            </button>
-            <button onClick={() => window.location.reload()} className="px-6 py-2 bg-blue-600 rounded-lg text-sm">
-              Reload Page
-            </button>
+          <div className="absolute inset-0 bg-neutral-900 flex flex-col items-center justify-center gap-4 px-8 text-center">
+            <div className="w-14 h-14 rounded-full bg-neutral-800 flex items-center justify-center mb-2">
+              <span className="text-neutral-400 text-2xl">⊘</span>
+            </div>
+            <p className="text-white text-lg font-bold">Camera Unavailable</p>
+            <p className="text-neutral-400 text-sm max-w-xs">{cameraError}</p>
+            <div className="flex gap-3 mt-2">
+              <button onClick={handleCancelScan} className="px-5 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-300">
+                ← Go Back
+              </button>
+              <button onClick={() => window.location.reload()} className="px-5 py-2 bg-white text-neutral-900 rounded-lg text-sm font-medium">
+                Reload
+              </button>
+            </div>
           </div>
         )}
 

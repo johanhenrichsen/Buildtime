@@ -4,70 +4,49 @@ interface Props {
   result: CheckinResult;
 }
 
-const LABEL: Record<CheckinResult['kind'], string> = {
-  success:      'RECORDED',
-  flagged:      'FLAGGED FOR REVIEW',
-  no_match:     'NOT RECOGNIZED',
-  rate_limited: 'ALREADY SCANNED',
-};
-
-const BG: Record<CheckinResult['kind'], string> = {
-  success:      'bg-green-600',
-  flagged:      'bg-yellow-500',
-  no_match:     'bg-red-600',
-  rate_limited: 'bg-slate-600',
-};
-
-const ICON: Record<CheckinResult['kind'], string> = {
-  success:      '✓',
-  flagged:      '⚠',
-  no_match:     '✗',
-  rate_limited: '⏱',
-};
-
 function initials(name: string) {
-  return name
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase();
+  return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 }
 
+const CONFIG = {
+  success:      { bg: 'bg-emerald-600', label: 'Recorded',         icon: '✓' },
+  flagged:      { bg: 'bg-amber-500',   label: 'Flagged for review', icon: '!' },
+  no_match:     { bg: 'bg-red-600',     label: 'Not recognized',    icon: '✗' },
+  rate_limited: { bg: 'bg-neutral-600', label: 'Already scanned',   icon: '—' },
+};
+
 export function CheckinResult({ result }: Props) {
-  const bg   = BG[result.kind];
-  const icon = ICON[result.kind];
+  const { bg, label, icon } = CONFIG[result.kind];
 
   return (
-    <div className={`flex flex-col items-center justify-center w-full h-full ${bg} text-white`}>
-      <div className="text-7xl font-black mb-4">{icon}</div>
+    <div className={`flex flex-col items-center justify-center w-full h-full ${bg} text-white px-8`}>
+      {/* Status icon */}
+      <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-4xl font-bold mb-6">
+        {icon}
+      </div>
 
+      {/* Worker name */}
       {result.workerName && (
         <>
-          <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold mb-3">
+          <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold mb-3">
             {initials(result.workerName)}
           </div>
-          <div className="text-3xl font-bold mb-2 text-center px-6">{result.workerName}</div>
+          <div className="text-3xl font-bold text-center mb-2">{result.workerName}</div>
         </>
       )}
 
+      {/* Clock in / out pill */}
       {result.eventType && (
-        <div className="mt-1 mb-3 px-8 py-2 rounded-full bg-white/20 text-4xl font-black tracking-widest">
-          CLOCK {result.eventType === 'in' ? 'IN' : 'OUT'}
+        <div className="mt-1 mb-4 px-6 py-2 rounded-lg bg-white/20 text-2xl font-bold">
+          {result.eventType === 'in' ? 'Clocked In' : 'Clocked Out'}
         </div>
       )}
 
-      <div className="text-sm font-semibold tracking-widest opacity-80 mt-1">
-        {LABEL[result.kind]}
-      </div>
+      {/* Status label */}
+      <div className="text-sm font-semibold uppercase opacity-80 tracking-wide mb-1">{label}</div>
 
-      <div className="text-sm opacity-70 mt-2 px-6 text-center">{result.message}</div>
-
-      {result.confidence !== undefined && (
-        <div className="mt-2 text-xs opacity-50">
-          {(result.confidence * 100).toFixed(0)}% confidence
-        </div>
-      )}
+      {/* Message */}
+      <div className="text-sm opacity-70 text-center max-w-xs">{result.message}</div>
     </div>
   );
 }

@@ -12,7 +12,6 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
   const [error, setError] = useState('');
   const inputRef          = useRef<HTMLInputElement>(null);
 
-  // Auto-focus hidden input on mount so hardware keyboard works immediately
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   function handleKeyInput(e: React.ChangeEvent<HTMLInputElement>) {
@@ -39,7 +38,7 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
     if (match) {
       onSuccess(match);
     } else {
-      setError('No worker found with that ID. Check your employee number and try again.');
+      setError('Employee ID not found. Check your number and try again.');
       setPin('');
       inputRef.current?.focus();
     }
@@ -52,12 +51,12 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
   const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full bg-slate-900 px-6">
+    <div className="flex flex-col items-center justify-center w-full h-full bg-neutral-900 px-6">
       <div className="w-full max-w-xs">
-        <h2 className="text-white text-2xl font-bold text-center mb-1">Enter Your Employee ID</h2>
-        <p className="text-slate-400 text-sm text-center mb-6">Your employee number, e.g. EMP-001</p>
+        <h2 className="text-white text-2xl font-bold text-center mb-1">Employee ID</h2>
+        <p className="text-neutral-500 text-sm text-center mb-5">Enter your employee number</p>
 
-        {/* Hidden input — captures keyboard/numpad hardware input and routes through state */}
+        {/* Hidden input for hardware keyboard */}
         <input
           ref={inputRef}
           type="text"
@@ -72,22 +71,24 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
           spellCheck={false}
         />
 
-        {/* Display — tap to show on-screen keyboard (needed for alpha-numeric IDs like EMP-001) */}
+        {/* Display field */}
         <button
           type="button"
           onClick={() => inputRef.current?.focus()}
-          className="w-full bg-slate-800 rounded-xl px-5 py-3 text-center mb-2 min-h-[52px] flex items-center justify-center cursor-text"
-          aria-label="Tap to type employee ID"
+          className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-5 py-4 text-center mb-1 min-h-[60px] flex items-center justify-center"
         >
           <span className="text-white text-3xl font-mono tracking-widest">
-            {pin || <span className="text-slate-600">_ _ _ _ _</span>}
+            {pin || <span className="text-neutral-600">— — — — —</span>}
           </span>
         </button>
-        <p className="text-slate-500 text-xs text-center mb-1">Tap the field above to type with keyboard</p>
-        {error && <p className="text-red-400 text-sm text-center mb-2">{error}</p>}
 
-        {/* Numpad — quick entry for purely numeric IDs */}
-        <div className="grid grid-cols-3 gap-3 mt-4">
+        {error
+          ? <p className="text-red-400 text-sm text-center mb-3 mt-1">{error}</p>
+          : <p className="text-neutral-600 text-xs text-center mb-3 mt-1">Tap field to use keyboard</p>
+        }
+
+        {/* Numpad */}
+        <div className="grid grid-cols-3 gap-2 mt-1">
           {keys.map((k, i) =>
             k === '' ? (
               <div key={i} />
@@ -95,7 +96,7 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
               <button
                 key={i}
                 onClick={del}
-                className="h-16 rounded-xl bg-slate-700 text-white text-xl font-medium active:bg-slate-600"
+                className="h-14 rounded-xl bg-neutral-800 border border-neutral-700 text-white text-xl font-medium active:bg-neutral-700"
               >
                 {k}
               </button>
@@ -103,7 +104,7 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
               <button
                 key={i}
                 onClick={() => press(k)}
-                className="h-16 rounded-xl bg-slate-700 text-white text-2xl font-medium active:bg-slate-600"
+                className="h-14 rounded-xl bg-neutral-800 border border-neutral-700 text-white text-2xl font-semibold active:bg-neutral-700"
               >
                 {k}
               </button>
@@ -114,14 +115,14 @@ export function PinEntry({ roster, onSuccess, onCancel }: Props) {
         <button
           onClick={submit}
           disabled={pin.length === 0}
-          className="w-full mt-4 py-3 rounded-xl bg-blue-600 text-white text-lg font-semibold disabled:opacity-40 active:bg-blue-500"
+          className="w-full mt-3 py-4 rounded-xl bg-blue-600 text-white text-lg font-bold disabled:opacity-40 active:bg-blue-500 transition-opacity"
         >
           Confirm
         </button>
 
         <button
           onClick={onCancel}
-          className="w-full mt-2 py-2 text-slate-400 text-sm hover:text-slate-300"
+          className="w-full mt-2 py-2 text-neutral-500 text-sm hover:text-neutral-300 transition-colors"
         >
           ← Back
         </button>

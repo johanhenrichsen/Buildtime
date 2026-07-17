@@ -14,7 +14,7 @@ function initials(name: string) {
   return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 }
 
-export function ChooseAction({ worker, onChoose, onCancel, rateLimitError }: Props) {
+export function ChooseAction({ worker, onChoose, onCancel, rateLimitError: _ }: Props) {
   const [countdown, setCountdown] = useState(TIMEOUT_SEC);
 
   useEffect(() => {
@@ -27,53 +27,56 @@ export function ChooseAction({ worker, onChoose, onCancel, rateLimitError }: Pro
     return () => clearInterval(tick);
   }, [onCancel]);
 
-  const isIn  = worker.defaultEventType === 'in';
-  const isOut = worker.defaultEventType === 'out';
+  const suggestIn  = worker.defaultEventType === 'in';
+  const suggestOut = worker.defaultEventType === 'out';
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full bg-slate-900 text-white px-8">
-      <p className="text-slate-400 text-sm tracking-widest uppercase mb-6">Is this you?</p>
-
-      {/* Worker avatar + name */}
-      <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-4xl font-black mb-4">
-        {initials(worker.name)}
+    <div className="flex flex-col items-center justify-center w-full h-full bg-neutral-900 text-white px-8">
+      {/* Worker */}
+      <div className="flex flex-col items-center mb-8">
+        <div className="w-20 h-20 rounded-full bg-neutral-700 border-2 border-neutral-600 flex items-center justify-center text-3xl font-bold mb-3">
+          {initials(worker.name)}
+        </div>
+        <div className="text-2xl font-bold text-center">{worker.name}</div>
+        {worker.flagged && (
+          <div className="mt-2 text-xs text-amber-400 bg-amber-400/10 px-3 py-1 rounded">
+            Low confidence — please verify your identity
+          </div>
+        )}
       </div>
-      <p className="text-3xl font-bold text-center mb-1">{worker.name}</p>
-      <p className="text-base text-slate-400 mb-8 tracking-wide">
-        {worker.flagged ? 'Low confidence — verify identity' : 'Face recognized'}
-      </p>
 
-      {/* Clock In */}
-      <button
-        onClick={() => onChoose('in')}
-        className={`w-full max-w-sm py-7 rounded-2xl text-2xl font-black tracking-wide mb-4 transition-transform active:scale-95 ${
-          isIn
-            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40'
-            : 'bg-slate-700 text-slate-200 border border-slate-600'
-        }`}
-      >
-        {isIn && <span className="block text-xs font-semibold tracking-widest opacity-80 mb-0.5">SUGGESTED</span>}
-        Clock In
-      </button>
+      {/* Action buttons */}
+      <div className="w-full max-w-sm space-y-3">
+        <button
+          onClick={() => onChoose('in')}
+          className={`w-full py-6 rounded-xl text-xl font-bold transition-opacity active:opacity-80 ${
+            suggestIn
+              ? 'bg-emerald-600 text-white'
+              : 'bg-neutral-800 text-neutral-200 border border-neutral-700'
+          }`}
+        >
+          {suggestIn && <span className="block text-xs font-normal text-emerald-200 mb-1">Suggested</span>}
+          Clock In
+        </button>
 
-      {/* Clock Out */}
-      <button
-        onClick={() => onChoose('out')}
-        className={`w-full max-w-sm py-7 rounded-2xl text-2xl font-black tracking-wide mb-8 transition-transform active:scale-95 ${
-          isOut
-            ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/40'
-            : 'bg-slate-700 text-slate-200 border border-slate-600'
-        }`}
-      >
-        {isOut && <span className="block text-xs font-semibold tracking-widest opacity-80 mb-0.5">SUGGESTED</span>}
-        Clock Out
-      </button>
+        <button
+          onClick={() => onChoose('out')}
+          className={`w-full py-6 rounded-xl text-xl font-bold transition-opacity active:opacity-80 ${
+            suggestOut
+              ? 'bg-orange-600 text-white'
+              : 'bg-neutral-800 text-neutral-200 border border-neutral-700'
+          }`}
+        >
+          {suggestOut && <span className="block text-xs font-normal text-orange-200 mb-1">Suggested</span>}
+          Clock Out
+        </button>
+      </div>
 
       <button
         onClick={onCancel}
-        className="text-slate-500 text-sm hover:text-slate-300 transition-colors"
+        className="mt-6 text-sm text-neutral-500 hover:text-neutral-300 transition-colors"
       >
-        Cancel ({countdown}s)
+        Not you? Cancel ({countdown}s)
       </button>
     </div>
   );

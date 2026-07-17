@@ -27,3 +27,6 @@ node_modules/
 
 # Face model binary weights — downloaded by npm postinstall, not committed
 apps/kiosk/public/models/*.bin
+
+.vercel
+.env*

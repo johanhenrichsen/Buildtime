@@ -96,6 +96,22 @@ export async function fetchRoster(): Promise<RosterEntry[]> {
   return res.json() as Promise<RosterEntry[]>;
 }
 
+export interface WorkerStatus {
+  workerId: string;
+  name: string;
+  employeeNo: string;
+  todayStatus: 'in' | 'out' | null;
+  lastEventAt: string | null;
+  todayEvents: { type: string; time: string }[];
+  pendingAdvances: { id: string; amount: string; reason: string; status: string; requestedAt: string }[];
+}
+
+export async function getWorkerStatus(workerId: string): Promise<WorkerStatus> {
+  const res = await authedFetch(`/api/v1/attendance/worker-status/${workerId}`, undefined, 8_000);
+  if (!res.ok) throw new Error(`Could not load worker status (${res.status})`);
+  return res.json() as Promise<WorkerStatus>;
+}
+
 export async function requestAdvance(workerId: string, amount: number, reason: string): Promise<{ id: string }> {
   const res = await authedFetch(
     '/api/v1/attendance/request-advance',

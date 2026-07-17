@@ -14,6 +14,7 @@ import { CheckinResult as CheckinResultView } from './components/CheckinResult';
 import { ChooseAction } from './components/ChooseAction';
 import { PinEntry } from './components/PinEntry';
 import { AdvanceForm } from './components/AdvanceForm';
+import { SelfService } from './components/SelfService';
 import { MATCH_DIST_HIGH, MATCH_DIST_LOW, RESULT_DISPLAY_MS } from './constants';
 import { requestAdvance } from './lib/api';
 import { findBestMatchMulti } from './lib/matcher';
@@ -265,6 +266,21 @@ export default function App() {
     setPhase('idle');
   }, []);
 
+  // ── Self-service flow ─────────────────────────────────────────────────────
+  const handleSelfIdSuccess = useCallback((entry: RosterEntry) => {
+    setAdvanceWorker(entry);
+    setPhase('self_service');
+  }, []);
+
+  const handleSelfClose = useCallback(() => {
+    setAdvanceWorker(null);
+    setPhase('idle');
+  }, []);
+
+  const handleSelfRequestAdvance = useCallback(() => {
+    setPhase('advance_form');
+  }, []);
+
   // ── Cash advance flow ─────────────────────────────────────────────────────
   const handleAdvancePinSuccess = useCallback((entry: RosterEntry) => {
     setAdvanceWorker(entry);
@@ -372,12 +388,20 @@ export default function App() {
                 Use Employee ID
               </button>
 
-              <button
-                onClick={() => setPhase('advance_id')}
-                className="w-full py-4 rounded-xl bg-neutral-800 text-neutral-400 text-sm font-medium border border-neutral-700 active:bg-neutral-700 transition-colors"
-              >
-                Request Cash Advance
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setPhase('self_id')}
+                  className="py-3 rounded-xl bg-neutral-800 text-neutral-400 text-sm font-medium border border-neutral-700 active:bg-neutral-700 transition-colors"
+                >
+                  My Status
+                </button>
+                <button
+                  onClick={() => setPhase('advance_id')}
+                  className="py-3 rounded-xl bg-neutral-800 text-neutral-400 text-sm font-medium border border-neutral-700 active:bg-neutral-700 transition-colors"
+                >
+                  Request Advance
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -419,6 +443,26 @@ export default function App() {
         {phase === 'pin' && (
           <div className="absolute inset-0">
             <PinEntry roster={pinRoster} onSuccess={handlePinSuccess} onCancel={() => setPhase('idle')} />
+          </div>
+        )}
+
+        {phase === 'self_id' && (
+          <div className="absolute inset-0">
+            <PinEntry
+              roster={pinRoster}
+              onSuccess={handleSelfIdSuccess}
+              onCancel={handleSelfClose}
+            />
+          </div>
+        )}
+
+        {phase === 'self_service' && advanceWorker && (
+          <div className="absolute inset-0">
+            <SelfService
+              worker={advanceWorker}
+              onClose={handleSelfClose}
+              onRequestAdvance={handleSelfRequestAdvance}
+            />
           </div>
         )}
 

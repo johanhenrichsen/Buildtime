@@ -21,11 +21,19 @@ import { SyncEventsDto } from './dto/sync-events.dto';
 import { ReviewEventDto } from './dto/review-event.dto';
 import { ManualAttendanceDto } from './dto/manual-attendance.dto';
 import { AttendanceEventsQueryDto } from './dto/attendance-events-query.dto';
+import { RequestAdvanceDto } from './dto/request-advance.dto';
 
 @Controller('attendance')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
+
+  @Post('request-advance')
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermissions('checkin_kiosk')
+  requestAdvance(@Body() dto: RequestAdvanceDto) {
+    return this.attendanceService.requestAdvance(dto);
+  }
 
   // Kiosk-only endpoint — syncs queued events from device to server.
   // Server timestamp is set here (authoritative); client_ts stored for audit only.
@@ -57,6 +65,18 @@ export class AttendanceController {
   @RequirePermissions('edit_attendance')
   getDashboard() {
     return this.attendanceService.getDashboardStats();
+  }
+
+  @Get('notifications')
+  @RequirePermissions('edit_attendance')
+  getNotifications() {
+    return this.attendanceService.getNotifications();
+  }
+
+  @Get('worker-status/:workerId')
+  @RequirePermissions('checkin_kiosk')
+  getWorkerStatus(@Param('workerId', ParseUUIDPipe) workerId: string) {
+    return this.attendanceService.getWorkerStatus(workerId);
   }
 
   // Raw attendance event log for any date range — used by admin Reports page.

@@ -50,6 +50,23 @@ export function useDeleteShift() {
   })
 }
 
+export function useNotifications() {
+  return useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => api.getNotifications(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  })
+}
+
+export function useReEnrollSuggestions() {
+  return useQuery({
+    queryKey: ['reenroll-suggestions'],
+    queryFn: () => api.getReEnrollSuggestions(),
+    staleTime: 5 * 60_000,
+  })
+}
+
 export function useUpdateSite() {
   const qc = useQueryClient()
   return useMutation({

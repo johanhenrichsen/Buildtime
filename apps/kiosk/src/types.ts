@@ -12,6 +12,8 @@ export type KioskPhase =
   | 'pin'           // employee ID entry
   | 'advance_id'    // worker identifies via PIN for cash advance request
   | 'advance_form'  // worker enters advance amount + reason
+  | 'self_id'       // worker identifies via PIN for self-service status
+  | 'self_service'  // worker sees today's attendance + pending advances
   | 'error';        // unrecoverable setup error
 
 export interface MatchedWorker {

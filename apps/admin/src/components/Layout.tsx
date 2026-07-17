@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { clearToken, getUser } from '@/lib/auth';
 import { useFlagged, useCashAdvances } from '@/lib/queries';
+import { NotificationBell } from '@/components/NotificationBell';
 
 type NavItem = {
   label: string;
@@ -76,6 +77,7 @@ export function Layout({ children }: LayoutProps) {
           <p className="text-sm font-semibold text-sidebar-foreground leading-tight">BuildTime</p>
           <p className="text-xs text-sidebar-foreground/50 leading-tight">Admin Portal</p>
         </div>
+        <NotificationBell />
         {/* Close button — mobile only */}
         <button
           className="md:hidden p-1 rounded text-sidebar-foreground/60 hover:text-sidebar-foreground"

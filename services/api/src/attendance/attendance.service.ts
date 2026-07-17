@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { KioskJwtPayload, WorkerJwtPayload } from '@buildtime/shared-types';
 import { SyncEventsDto } from './dto/sync-events.dto';
 import { ReviewEventDto } from './dto/review-event.dto';
 import { ManualAttendanceDto } from './dto/manual-attendance.dto';
 import { AttendanceEventsQueryDto } from './dto/attendance-events-query.dto';
+import { RequestAdvanceDto } from './dto/request-advance.dto';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -192,6 +193,123 @@ export class AttendanceService {
       pendingFlagged,
       pendingAdvances,
     };
+  }
+
+  async getNotifications() {
+    const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const [flagged, advances, lowConfidence] = await Promise.all([
+      this.prisma.attendanceEvent.findMany({
+        where: { flaggedForReview: true, serverTs: { gte: since7d } },
+        orderBy: { serverTs: 'desc' },
+        take: 20,
+        select: { id: true, serverTs: true, worker: { select: { name: true } } },
+      }),
+      this.prisma.cashAdvance.findMany({
+        where: { status: 'pending', requestedAt: { gte: since7d } },
+        orderBy: { requestedAt: 'desc' },
+        take: 20,
+        select: { id: true, amount: true, requestedAt: true, worker: { select: { name: true } } },
+      }),
+      // Workers with >3 low-confidence events in last 30 days
+      this.prisma.$queryRaw<{ workerId: string; name: string; employeeNo: string; count: bigint; lastEventAt: Date }[]>`
+        SELECT ae.worker_id AS "workerId", w.name, w.employee_no AS "employeeNo",
+               COUNT(*) AS count, MAX(ae.server_ts) AS "lastEventAt"
+        FROM attendance_events ae
+        JOIN workers w ON w.id = ae.worker_id
+        WHERE ae.match_method = 'face_low_confidence'
+          AND ae.server_ts >= ${since30d}
+        GROUP BY ae.worker_id, w.name, w.employee_no
+        HAVING COUNT(*) > 3
+        ORDER BY count DESC
+        LIMIT 20
+      `,
+    ]);
+
+    const items = [
+      ...flagged.map(f => ({
+        id: f.id,
+        type: 'flagged' as const,
+        workerName: f.worker.name,
+        message: 'Flagged attendance event',
+        ts: f.serverTs.toISOString(),
+        link: `/flagged/${f.id}`,
+      })),
+      ...advances.map(a => ({
+        id: a.id,
+        type: 'advance' as const,
+        workerName: a.worker.name,
+        message: `PHP ${Number(a.amount).toLocaleString()} advance requested`,
+        ts: a.requestedAt.toISOString(),
+        link: `/advances`,
+      })),
+      ...lowConfidence.map(r => ({
+        id: r.workerId,
+        type: 'reenroll' as const,
+        workerName: r.name,
+        message: `${Number(r.count)} low-confidence events — needs re-enrollment`,
+        ts: r.lastEventAt.toISOString(),
+        link: `/enrollment`,
+      })),
+    ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+
+    return { items };
+  }
+
+  async getWorkerStatus(workerId: string) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const worker = await this.prisma.worker.findUnique({
+      where: { id: workerId },
+      select: { id: true, name: true, employeeNo: true },
+    });
+    if (!worker) throw new NotFoundException(`Worker ${workerId} not found`);
+
+    const [todayEvents, pendingAdvances] = await Promise.all([
+      this.prisma.attendanceEvent.findMany({
+        where: { workerId, serverTs: { gte: since } },
+        orderBy: { serverTs: 'asc' },
+        select: { eventType: true, serverTs: true },
+      }),
+      this.prisma.cashAdvance.findMany({
+        where: { workerId, status: 'pending' },
+        orderBy: { requestedAt: 'desc' },
+        select: { id: true, amount: true, reason: true, status: true, requestedAt: true },
+      }),
+    ]);
+
+    const lastEvent = todayEvents[todayEvents.length - 1] ?? null;
+    return {
+      workerId: worker.id,
+      name: worker.name,
+      employeeNo: worker.employeeNo,
+      todayStatus: lastEvent?.eventType ?? null,
+      lastEventAt: lastEvent?.serverTs.toISOString() ?? null,
+      todayEvents: todayEvents.map(e => ({ type: e.eventType, time: e.serverTs.toISOString() })),
+      pendingAdvances: pendingAdvances.map(a => ({
+        id: a.id,
+        amount: a.amount.toString(),
+        reason: a.reason,
+        status: a.status,
+        requestedAt: a.requestedAt.toISOString(),
+      })),
+    };
+  }
+
+  async requestAdvance(dto: RequestAdvanceDto) {
+    const worker = await this.prisma.worker.findUnique({ where: { id: dto.workerId }, select: { id: true, status: true } });
+    if (!worker) throw new NotFoundException(`Worker not found`);
+    if (worker.status !== 'active') throw new BadRequestException('Worker is not active');
+
+    return this.prisma.cashAdvance.create({
+      data: {
+        workerId: dto.workerId,
+        amount: dto.amount,
+        reason: dto.reason,
+        status: 'pending',
+      },
+      select: { id: true, amount: true, reason: true, status: true },
+    });
   }
 
   async reviewEvent(id: string, dto: ReviewEventDto, actor: WorkerJwtPayload) {

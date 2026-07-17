@@ -41,6 +41,12 @@ export class EnrollmentController {
     return this.enrollmentService.getStatus(workerId);
   }
 
+  @Get('suggestions')
+  @RequirePermissions('manage_workers_site')
+  getSuggestions() {
+    return this.enrollmentService.getSuggestions();
+  }
+
   // Full embedding history (active + revoked) for HR dispute review.
   @Get(':workerId/history')
   @RequirePermissions('manage_workers_all')

@@ -106,6 +106,33 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   return json(res);
 }
 
+export interface NotificationItem {
+  id: string;
+  type: 'flagged' | 'advance' | 'reenroll';
+  workerName: string;
+  message: string;
+  ts: string;
+  link: string;
+}
+
+export async function getNotifications(): Promise<{ items: NotificationItem[] }> {
+  const res = await apiFetch('/api/v1/attendance/notifications');
+  return json(res);
+}
+
+export interface ReEnrollSuggestion {
+  workerId: string;
+  name: string;
+  employeeNo: string;
+  lowConfidenceCount: number;
+  lastEventAt: string;
+}
+
+export async function getReEnrollSuggestions(): Promise<ReEnrollSuggestion[]> {
+  const res = await apiFetch('/api/v1/enrollment/suggestions');
+  return json(res);
+}
+
 // ── Sites ─────────────────────────────────────────────────────────────────────
 
 export interface Site {

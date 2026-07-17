@@ -145,6 +145,36 @@ export class EnrollmentService {
     });
   }
 
+  async getSuggestions() {
+    const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const rows = await this.prisma.$queryRaw<{
+      workerId: string;
+      name: string;
+      employeeNo: string;
+      lowConfidenceCount: bigint;
+      lastEventAt: Date;
+    }[]>`
+      SELECT ae.worker_id AS "workerId", w.name, w.employee_no AS "employeeNo",
+             COUNT(*) AS "lowConfidenceCount", MAX(ae.server_ts) AS "lastEventAt"
+      FROM attendance_events ae
+      JOIN workers w ON w.id = ae.worker_id
+      WHERE ae.match_method = 'face_low_confidence'
+        AND ae.server_ts >= ${since30d}
+        AND w.status = 'active'
+      GROUP BY ae.worker_id, w.name, w.employee_no
+      HAVING COUNT(*) > 3
+      ORDER BY "lowConfidenceCount" DESC
+      LIMIT 20
+    `;
+    return rows.map(r => ({
+      workerId: r.workerId,
+      name: r.name,
+      employeeNo: r.employeeNo,
+      lowConfidenceCount: Number(r.lowConfidenceCount),
+      lastEventAt: r.lastEventAt.toISOString(),
+    }));
+  }
+
   // Returns all embedding history for a worker (active + deactivated), without vectors.
   // Used by HR for dispute review / re-enrollment decisions.
   getHistory(workerId: string) {

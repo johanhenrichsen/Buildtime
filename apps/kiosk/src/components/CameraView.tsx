@@ -76,6 +76,10 @@ export function CameraView({
     const video  = videoRef.current;
     if (!canvas || !video) return;
 
+    // Capture non-null locals so TypeScript keeps them in scope inside frame()
+    const cv = canvas;
+    const vd = video;
+
     let raf: number;
 
     function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
@@ -85,14 +89,14 @@ export function CameraView({
       lastTs.current = ts;
 
       // Keep canvas in sync with video dimensions
-      const W = video.videoWidth  || 640;
-      const H = video.videoHeight || 480;
-      if (canvas.width !== W || canvas.height !== H) {
-        canvas.width  = W;
-        canvas.height = H;
+      const W = vd.videoWidth  || 640;
+      const H = vd.videoHeight || 480;
+      if (cv.width !== W || cv.height !== H) {
+        cv.width  = W;
+        cv.height = H;
       }
 
-      const ctx    = canvas.getContext('2d')!;
+      const ctx    = cv.getContext('2d')!;
       ctx.clearRect(0, 0, W, H);
 
       const box    = detRef.current.box;

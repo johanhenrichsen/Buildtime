@@ -55,6 +55,12 @@ export class AttendanceController {
     return this.attendanceService.manualRecord(dto, user.sub);
   }
 
+  @Get('activity')
+  @RequirePermissions('edit_attendance')
+  getWorkerActivity() {
+    return this.attendanceService.getWorkerActivity();
+  }
+
   @Get('on-site')
   @RequirePermissions('edit_attendance')
   getOnSite() {

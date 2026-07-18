@@ -172,6 +172,55 @@ export class AttendanceService {
     return rows;
   }
 
+  async getWorkerActivity() {
+    const rows = await this.prisma.$queryRaw<{
+      workerId: string;
+      name: string;
+      employeeNo: string;
+      photo: string | null;
+      lastEventType: string | null;
+      lastEventAt: Date | null;
+      siteName: string | null;
+    }[]>`
+      WITH last_events AS (
+        SELECT DISTINCT ON (ae.worker_id)
+          ae.worker_id,
+          ae.event_type,
+          ae.server_ts,
+          ae.site_id
+        FROM attendance_events ae
+        WHERE ae.server_ts >= NOW() - INTERVAL '24 hours'
+        ORDER BY ae.worker_id, ae.server_ts DESC
+      )
+      SELECT
+        w.id           AS "workerId",
+        w.name,
+        w.employee_no  AS "employeeNo",
+        w.photo,
+        le.event_type  AS "lastEventType",
+        le.server_ts   AS "lastEventAt",
+        s.name         AS "siteName"
+      FROM workers w
+      LEFT JOIN last_events le ON le.worker_id = w.id
+      LEFT JOIN sites s ON s.id = le.site_id
+      WHERE w.status = 'active'
+      ORDER BY
+        CASE WHEN le.event_type = 'in' THEN 0 ELSE 1 END,
+        w.name
+    `;
+
+    return rows.map(r => ({
+      workerId: r.workerId,
+      name: r.name,
+      employeeNo: r.employeeNo,
+      photo: r.photo,
+      status: r.lastEventType === 'in' ? 'on_site' : ('off_site' as 'on_site' | 'off_site'),
+      lastEventType: r.lastEventType,
+      lastEventAt: r.lastEventAt?.toISOString() ?? null,
+      siteName: r.siteName,
+    }));
+  }
+
   async getDashboardStats() {
     const todayUtc = new Date();
     todayUtc.setUTCHours(0, 0, 0, 0);
@@ -328,7 +377,6 @@ export class AttendanceService {
 
     if (!event) throw new NotFoundException(`Attendance event ${id} not found`);
 
-    // Write immutable audit_log entry — do NOT mutate the attendance_event itself
     const before: Prisma.InputJsonValue = {
       flaggedForReview: event.flaggedForReview,
     };
@@ -338,16 +386,24 @@ export class AttendanceService {
       reviewedBy: actor.sub,
     };
 
-    await this.prisma.auditLog.create({
-      data: {
-        actorId:  actor.sub,
-        action:   `review_flagged_event:${dto.decision}`,
-        entity:   'attendance_event',
-        entityId: id,
-        before,
-        after,
-      },
-    });
+    await this.prisma.$transaction([
+      // Clear the flag so the event leaves the review queue
+      this.prisma.attendanceEvent.update({
+        where: { id },
+        data: { flaggedForReview: false },
+      }),
+      // Immutable audit record captures who reviewed it and what they decided
+      this.prisma.auditLog.create({
+        data: {
+          actorId:  actor.sub,
+          action:   `review_flagged_event:${dto.decision}`,
+          entity:   'attendance_event',
+          entityId: id,
+          before,
+          after,
+        },
+      }),
+    ]);
 
     return { id, decision: dto.decision, reason: dto.reason };
   }

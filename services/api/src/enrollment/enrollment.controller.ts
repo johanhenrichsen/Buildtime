@@ -17,11 +17,20 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { WorkerJwtPayload } from '@buildtime/shared-types';
 import { EnrollmentService } from './enrollment.service';
 import { EnrollWorkerDto } from './dto/enroll-worker.dto';
+import { MatchFaceDto } from './dto/match-face.dto';
 
 @Controller('enrollment')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class EnrollmentController {
   constructor(private readonly enrollmentService: EnrollmentService) {}
+
+  // Matches a face embedding against enrolled workers — used by the admin advance request flow.
+  @Post('match')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions('manage_workers_site')
+  matchFace(@Body() dto: MatchFaceDto) {
+    return this.enrollmentService.matchFace(dto.embeddingVector);
+  }
 
   // HR officer or site manager submits a captured embedding for a worker.
   @Post(':workerId')

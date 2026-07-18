@@ -1,6 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from './api'
 
+export function useWorkerActivity() {
+  return useQuery({
+    queryKey: ['worker-activity'],
+    queryFn: () => api.getWorkerActivity(),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useMatchFace() {
+  return useMutation({
+    mutationFn: (embeddingVector: number[]) => api.matchFace(embeddingVector),
+  });
+}
+
 export function useOnSite() {
   return useQuery({
     queryKey: ['on-site'],

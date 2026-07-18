@@ -175,6 +175,47 @@ export class EnrollmentService {
     }));
   }
 
+  async matchFace(embeddingVector: number[]): Promise<{
+    matched: boolean;
+    worker?: { id: string; name: string; employeeNo: string; photo: string | null };
+    similarity?: number;
+  }> {
+    const DISTANCE_THRESHOLD = 0.25; // cosine distance; ≈75% similarity
+    const vectorLiteral = `[${embeddingVector.join(',')}]`;
+
+    const rows = await this.prisma.$queryRaw<{
+      workerId: string;
+      name: string;
+      employeeNo: string;
+      photo: string | null;
+      distance: number;
+    }[]>`
+      SELECT
+        fe.worker_id   AS "workerId",
+        w.name,
+        w.employee_no  AS "employeeNo",
+        w.photo,
+        (fe.embedding_vector <=> ${vectorLiteral}::vector) AS distance
+      FROM face_embeddings fe
+      JOIN workers w ON w.id = fe.worker_id
+      WHERE fe.active = true
+        AND w.status = 'active'
+      ORDER BY fe.embedding_vector <=> ${vectorLiteral}::vector
+      LIMIT 1
+    `;
+
+    if (rows.length === 0 || rows[0].distance > DISTANCE_THRESHOLD) {
+      return { matched: false };
+    }
+
+    const best = rows[0];
+    return {
+      matched: true,
+      worker: { id: best.workerId, name: best.name, employeeNo: best.employeeNo, photo: best.photo },
+      similarity: parseFloat((1 - best.distance).toFixed(4)),
+    };
+  }
+
   // Returns all embedding history for a worker (active + deactivated), without vectors.
   // Used by HR for dispute review / re-enrollment decisions.
   getHistory(workerId: string) {

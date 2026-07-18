@@ -17,6 +17,7 @@ import FlaggedDetail from '@/pages/FlaggedDetail';
 import Enrollment from '@/pages/Enrollment';
 import AuditLog from '@/pages/AuditLog';
 import CashAdvances from '@/pages/CashAdvances';
+import WorkerActivity from '@/pages/WorkerActivity';
 import Reports from '@/pages/Reports';
 import NotFound from '@/pages/NotFound';
 
@@ -48,6 +49,7 @@ function AppShell() {
         <Route path="/flagged/:id" component={FlaggedDetail} />
         <Route path="/audit" component={AuditLog} />
         <Route path="/advances" component={CashAdvances} />
+        <Route path="/activity" component={WorkerActivity} />
         <Route path="/reports" component={Reports} />
         <Route component={NotFound} />
       </Switch>

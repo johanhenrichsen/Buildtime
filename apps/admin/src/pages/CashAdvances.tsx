@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Check, X, Plus, Wallet, AlertCircle } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { Check, X, Plus, Wallet, AlertCircle, CheckCircle2, ScanFace, Hash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,18 +13,13 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { CardSkeleton } from '@/components/LoadingSkeleton';
 import { useToast } from '@/hooks/use-toast';
+import { FaceVerifyCamera } from '@/components/FaceVerifyCamera';
 import {
   useCashAdvances,
   useCreateCashAdvance,
+  useMatchFace,
   useReviewCashAdvance,
   useWorkers,
 } from '@/lib/queries';
@@ -54,15 +49,23 @@ function statusBadge(status: CashAdvance['status']) {
   return <Badge className={`text-xs ${s.className}`}>{s.label}</Badge>;
 }
 
+type IdentifyMode = 'face' | 'employee_no';
+type VerifiedWorker = { id: string; name: string; employeeNo: string };
+
 export default function CashAdvances() {
   const { toast } = useToast();
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
   // New request dialog
-  const [showRequest, setShowRequest] = useState(false);
-  const [reqWorker, setReqWorker]     = useState('');
-  const [reqAmount, setReqAmount]     = useState('');
-  const [reqReason, setReqReason]     = useState('');
+  const [showRequest, setShowRequest]         = useState(false);
+  const [identifyMode, setIdentifyMode]       = useState<IdentifyMode>('face');
+  const [verifiedWorker, setVerifiedWorker]   = useState<VerifiedWorker | null>(null);
+  const [scanning, setScanning]               = useState(false);
+  const [scanError, setScanError]             = useState<string | null>(null);
+  const [empNoInput, setEmpNoInput]           = useState('');
+  const [empNoError, setEmpNoError]           = useState<string | null>(null);
+  const [reqAmount, setReqAmount]             = useState('');
+  const [reqReason, setReqReason]             = useState('');
 
   // Approve dialog
   const [approving, setApproving]     = useState<CashAdvance | null>(null);
@@ -83,10 +86,55 @@ export default function CashAdvances() {
 
   const createAdvance = useCreateCashAdvance();
   const reviewAdvance = useReviewCashAdvance();
+  const matchFace     = useMatchFace();
+
+  function openRequest() {
+    setIdentifyMode('face');
+    setVerifiedWorker(null);
+    setScanning(false);
+    setScanError(null);
+    setEmpNoInput('');
+    setEmpNoError(null);
+    setReqAmount('');
+    setReqReason('');
+    setShowRequest(true);
+  }
+
+  function closeRequest() {
+    setShowRequest(false);
+  }
+
+  const handleFaceCapture = useCallback(async (descriptor: number[]) => {
+    setScanning(true);
+    setScanError(null);
+    try {
+      const result = await matchFace.mutateAsync(descriptor);
+      if (result.matched && result.worker) {
+        setVerifiedWorker({ id: result.worker.id, name: result.worker.name, employeeNo: result.worker.employeeNo });
+      } else {
+        setScanError('Face not recognized. Try again or use employee no.');
+      }
+    } catch {
+      setScanError('Verification failed. Try again or use employee no.');
+    } finally {
+      setScanning(false);
+    }
+  }, [matchFace]);
+
+  function handleEmpNoLookup() {
+    const trimmed = empNoInput.trim().toUpperCase();
+    const found = workers.find(w => w.employeeNo.toUpperCase() === trimmed);
+    if (found) {
+      setVerifiedWorker({ id: found.id, name: found.name, employeeNo: found.employeeNo });
+      setEmpNoError(null);
+    } else {
+      setEmpNoError(`No active worker found with employee no. "${trimmed}"`);
+    }
+  }
 
   async function handleRequest() {
-    if (!reqWorker || !reqAmount || !reqReason.trim()) {
-      toast({ title: 'Missing fields', description: 'Select a worker, enter an amount and reason.', variant: 'destructive' });
+    if (!verifiedWorker || !reqAmount || !reqReason.trim()) {
+      toast({ title: 'Missing fields', description: 'Verify the worker and enter amount and reason.', variant: 'destructive' });
       return;
     }
     const amount = parseFloat(reqAmount);
@@ -95,9 +143,8 @@ export default function CashAdvances() {
       return;
     }
     try {
-      await createAdvance.mutateAsync({ workerId: reqWorker, amount, reason: reqReason.trim() });
-      setShowRequest(false);
-      setReqWorker(''); setReqAmount(''); setReqReason('');
+      await createAdvance.mutateAsync({ workerId: verifiedWorker.id, amount, reason: reqReason.trim() });
+      closeRequest();
       toast({ title: 'Request submitted', description: 'Cash advance request has been created.' });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to submit request.';
@@ -138,7 +185,7 @@ export default function CashAdvances() {
           <h1 className="text-xl font-semibold text-foreground">Cash Advances</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Salary advance requests for workers</p>
         </div>
-        <Button onClick={() => setShowRequest(true)} className="sm:flex-shrink-0">
+        <Button onClick={openRequest} className="sm:flex-shrink-0">
           <Plus className="w-4 h-4 mr-2" />
           New Request
         </Button>
@@ -241,42 +288,147 @@ export default function CashAdvances() {
       )}
 
       {/* New request dialog */}
-      <Dialog open={showRequest} onOpenChange={setShowRequest}>
+      <Dialog open={showRequest} onOpenChange={(open) => { if (!open) closeRequest(); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>New Cash Advance Request</DialogTitle>
-            <DialogDescription>Submit a salary advance request on behalf of a worker.</DialogDescription>
+            <DialogDescription>
+              {verifiedWorker
+                ? 'Enter the advance amount and reason.'
+                : 'Verify the worker\'s identity to continue.'}
+            </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4 py-2">
-            <div>
-              <Label>Worker *</Label>
-              <Select value={reqWorker} onValueChange={setReqWorker}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="— select worker —" />
-                </SelectTrigger>
-                <SelectContent>
-                  {workers.map((w) => (
-                    <SelectItem key={w.id} value={w.id}>
-                      {w.name} <span className="text-muted-foreground ml-1">({w.employeeNo})</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="amount">Amount (PHP) *</Label>
-              <Input id="amount" type="number" min="1" placeholder="e.g. 2500" value={reqAmount} onChange={(e) => setReqAmount(e.target.value)} className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="reason">Reason *</Label>
-              <Textarea id="reason" placeholder="e.g. Medical emergency, school fees…" value={reqReason} onChange={(e) => setReqReason(e.target.value)} rows={3} className="mt-1" />
-            </div>
+            {/* ── Identity step ── */}
+            {!verifiedWorker ? (
+              <div className="space-y-3">
+                {/* Mode toggle */}
+                <div className="flex items-center gap-1 border rounded-md p-0.5 bg-muted w-fit">
+                  <button
+                    onClick={() => { setIdentifyMode('face'); setScanError(null); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                      identifyMode === 'face' ? 'bg-white shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <ScanFace className="w-3.5 h-3.5" />
+                    Face ID
+                  </button>
+                  <button
+                    onClick={() => { setIdentifyMode('employee_no'); setScanError(null); setEmpNoError(null); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                      identifyMode === 'employee_no' ? 'bg-white shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Hash className="w-3.5 h-3.5" />
+                    Employee No.
+                  </button>
+                </div>
+
+                {identifyMode === 'face' ? (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <FaceVerifyCamera
+                        active={showRequest && identifyMode === 'face' && !verifiedWorker && !scanning}
+                        onCapture={handleFaceCapture}
+                      />
+                      {scanning && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                          <p className="text-sm font-medium">Verifying…</p>
+                        </div>
+                      )}
+                    </div>
+                    {scanError && (
+                      <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p>{scanError}</p>
+                          <button
+                            className="text-xs underline mt-0.5"
+                            onClick={() => { setScanError(null); }}
+                          >
+                            Try again
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="empNo">Employee No. *</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="empNo"
+                        placeholder="e.g. EMP-001"
+                        value={empNoInput}
+                        onChange={(e) => { setEmpNoInput(e.target.value); setEmpNoError(null); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleEmpNoLookup(); }}
+                        className="flex-1"
+                      />
+                      <Button variant="outline" onClick={handleEmpNoLookup} disabled={!empNoInput.trim()}>
+                        Find
+                      </Button>
+                    </div>
+                    {empNoError && (
+                      <p className="text-xs text-red-600">{empNoError}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ── Verified banner ── */
+              <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-emerald-800 truncate">{verifiedWorker.name}</p>
+                  <p className="text-xs text-emerald-600">{verifiedWorker.employeeNo}</p>
+                </div>
+                <button
+                  className="text-xs text-emerald-700 underline flex-shrink-0"
+                  onClick={() => { setVerifiedWorker(null); setScanError(null); setEmpNoError(null); setEmpNoInput(''); }}
+                >
+                  Change
+                </button>
+              </div>
+            )}
+
+            {/* ── Details (shown once worker is verified) ── */}
+            {verifiedWorker && (
+              <>
+                <div>
+                  <Label htmlFor="amount">Amount (PHP) *</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 2500"
+                    value={reqAmount}
+                    onChange={(e) => setReqAmount(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="reason">Reason *</Label>
+                  <Textarea
+                    id="reason"
+                    placeholder="e.g. Medical emergency, school fees…"
+                    value={reqReason}
+                    onChange={(e) => setReqReason(e.target.value)}
+                    rows={3}
+                    className="mt-1"
+                  />
+                </div>
+              </>
+            )}
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRequest(false)}>Cancel</Button>
-            <Button onClick={handleRequest} disabled={createAdvance.isPending}>
-              {createAdvance.isPending ? 'Submitting…' : 'Submit Request'}
-            </Button>
+            <Button variant="outline" onClick={closeRequest}>Cancel</Button>
+            {verifiedWorker && (
+              <Button onClick={handleRequest} disabled={createAdvance.isPending}>
+                {createAdvance.isPending ? 'Submitting…' : 'Submit Request'}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

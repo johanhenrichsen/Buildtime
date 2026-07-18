@@ -77,6 +77,40 @@ export async function updateSite(id: string, data: { shiftId?: string | null; st
   return json(res);
 }
 
+// ── Worker activity ───────────────────────────────────────────────────────────
+
+export interface WorkerActivityEntry {
+  workerId: string;
+  name: string;
+  employeeNo: string;
+  photo: string | null;
+  status: 'on_site' | 'off_site';
+  lastEventType: string | null;
+  lastEventAt: string | null;
+  siteName: string | null;
+}
+
+export async function getWorkerActivity(): Promise<WorkerActivityEntry[]> {
+  const res = await apiFetch('/api/v1/attendance/activity');
+  return json(res);
+}
+
+// ── Face match ────────────────────────────────────────────────────────────────
+
+export interface FaceMatchResult {
+  matched: boolean;
+  worker?: { id: string; name: string; employeeNo: string; photo: string | null };
+  similarity?: number;
+}
+
+export async function matchFace(embeddingVector: number[]): Promise<FaceMatchResult> {
+  const res = await apiFetch('/api/v1/enrollment/match', {
+    method: 'POST',
+    body: JSON.stringify({ embeddingVector }),
+  });
+  return json(res);
+}
+
 // ── On-site dashboard ─────────────────────────────────────────────────────────
 
 export interface OnSiteWorker {

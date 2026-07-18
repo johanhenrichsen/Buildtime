@@ -16,6 +16,7 @@ import {
   X,
   LayoutDashboard,
   Clock,
+  Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { clearToken, getUser } from '@/lib/auth';
@@ -31,6 +32,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { label: 'Dashboard',     path: '/',           icon: <LayoutDashboard className="w-4 h-4" /> },
   { label: 'Workers',       path: '/workers',    icon: <Users className="w-4 h-4" /> },
+  { label: 'Worker Activity', path: '/activity', icon: <Activity className="w-4 h-4" /> },
   { label: 'Sites',         path: '/sites',      icon: <Building2 className="w-4 h-4" /> },
   { label: 'Shifts',        path: '/shifts',     icon: <Clock className="w-4 h-4" /> },
   { label: 'Enrollment',    path: '/enrollment', icon: <Camera className="w-4 h-4" /> },

@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd apps/kiosk && npm install && npm run build",
-  "outputDirectory": "apps/kiosk/dist",
+  "buildCommand": "node scripts/dispatch-build.js",
+  "outputDirectory": "dist",
   "installCommand": "echo skip-root-install",
   "framework": null,
   "headers": [
@@ -10,5 +10,6 @@
         { "key": "Permissions-Policy", "value": "camera=(self)" }
       ]
     }
-  ]
+  ],
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

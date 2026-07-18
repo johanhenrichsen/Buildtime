@@ -204,7 +204,15 @@ export function useReviewFlagged() {
   return useMutation({
     mutationFn: ({ id, decision, reason }: { id: string; decision: 'approve' | 'reject'; reason: string }) =>
       api.reviewFlagged(id, decision, reason),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['flagged'] }),
+    onSuccess: (_data, { id }) => {
+      // Immediately remove the reviewed event from every cached page of the
+      // flagged list so the UI updates before the background refetch lands.
+      qc.setQueriesData<{ data: { id: string }[]; meta: Record<string, unknown> }>(
+        { queryKey: ['flagged'] },
+        (old) => old ? { ...old, data: old.data.filter(e => e.id !== id) } : old,
+      );
+      qc.invalidateQueries({ queryKey: ['flagged'] });
+    },
   })
 }
 

@@ -15,7 +15,7 @@ import { ChooseAction } from './components/ChooseAction';
 import { PinEntry } from './components/PinEntry';
 import { AdvanceForm } from './components/AdvanceForm';
 import { SelfService } from './components/SelfService';
-import { MATCH_DIST_HIGH, MATCH_DIST_LOW, RESULT_DISPLAY_MS } from './constants';
+import { MATCH_DIST_HIGH, MATCH_DIST_REJECT, MATCH_DIST_LOW, RESULT_DISPLAY_MS } from './constants';
 import { requestAdvance } from './lib/api';
 import { findBestMatchMulti } from './lib/matcher';
 import type { CheckinResult, EventType, KioskPhase, MatchedWorker, RosterEntry } from './types';
@@ -207,6 +207,13 @@ export default function App() {
       if (!match || match.distance > MATCH_DIST_LOW) {
         playFail();
         showResult({ kind: 'no_match', message: 'Face not recognized — use Employee ID below or ask your supervisor' });
+        return;
+      }
+
+      if (match.distance > MATCH_DIST_REJECT) {
+        // Confidence too low to be worth HR review — auto-reject without recording
+        playFail();
+        showResult({ kind: 'no_match', message: 'Could not verify identity — please try again or use Employee ID' });
         return;
       }
 

@@ -2,9 +2,15 @@
 // Lower distance = better match (opposite of cosine similarity).
 // Real-world job-site conditions (outdoor light, helmets, budget cameras) push distances
 // higher than lab benchmarks. Raised from 0.50/0.65 to accommodate this.
-export const MATCH_DIST_HIGH   = 0.60;  // below this → high-confidence auto-approve
-export const MATCH_DIST_LOW    = 0.75;  // below this → low-confidence, flagged_for_review
-// Above MATCH_DIST_LOW → no match
+//
+// Three-tier decision:
+//   distance ≤ MATCH_DIST_HIGH  → high-confidence auto-approve
+//   MATCH_DIST_HIGH < d ≤ MATCH_DIST_REJECT → flag for HR review (probably the person)
+//   MATCH_DIST_REJECT < d ≤ MATCH_DIST_LOW  → auto-reject, no event recorded (probably not them)
+//   distance > MATCH_DIST_LOW   → no match at all
+export const MATCH_DIST_HIGH   = 0.60;  // ≈60% confidence cutoff
+export const MATCH_DIST_REJECT = 0.68;  // ≈55% confidence — below this, reject instead of flag
+export const MATCH_DIST_LOW    = 0.75;  // ≈50% confidence — below this, no match
 
 export const RATE_LIMIT_MS     = 3 * 60 * 1000;  // 3 min between events per worker per direction
 export const RESULT_DISPLAY_MS = 2_500;           // ms to show result before resetting to idle
